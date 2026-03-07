@@ -110,7 +110,7 @@ class _PortionSelectionScreenState extends State<PortionSelectionScreen> {
                               const SizedBox(height: 8),
                               Text('Category: ${widget.food.category}'),
                               const SizedBox(height: 8),
-                              Text('Per 100g:'),
+                              const Text('Per 100g:'),
                               Text(
                                   'Carbs: ${widget.food.carbs100g.toStringAsFixed(1)}g'),
                               Text(

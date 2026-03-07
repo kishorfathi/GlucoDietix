@@ -94,18 +94,18 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
             ),
             const SizedBox(height: 16),
             if (_imageFile == null) ...[
-              Expanded(
+              const Expanded(
                 child: Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.camera_alt,
                         size: 100,
                         color: Colors.grey,
                       ),
-                      const SizedBox(height: 16),
-                      const Text(
+                      SizedBox(height: 16),
+                      Text(
                         'No image captured yet',
                         style: TextStyle(fontSize: 16, color: Colors.grey),
                       ),

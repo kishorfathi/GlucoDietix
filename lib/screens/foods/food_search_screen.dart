@@ -115,7 +115,7 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  value: _selectedCategory,
+                  initialValue: _selectedCategory,
                   decoration: const InputDecoration(
                     labelText: 'Category (optional)',
                     border: OutlineInputBorder(),
