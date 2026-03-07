@@ -118,7 +118,7 @@ class _PortionSelectionScreenState extends State<PortionSelectionScreen> {
                               Text(
                                   'Fat: ${widget.food.fat100g.toStringAsFixed(1)}g'),
                               Text(
-                                  'Calories: ${widget.food.kcal100g.toStringAsFixed(0)} kcal'),
+                                  'Calories: ${widget.food.energyKcal.toStringAsFixed(0)} kcal'),
                             ],
                           ),
                         ),

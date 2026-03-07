@@ -11,7 +11,8 @@ class MealProvider with ChangeNotifier {
   // Add food to meal
   void addFood(Food food) {
     // Check if food already exists
-    final existingIndex = _mealItems.indexWhere((item) => item.food.id == food.id);
+    final existingIndex =
+        _mealItems.indexWhere((item) => item.food.id == food.id);
     if (existingIndex == -1) {
       _mealItems.add(MealItem(food: food, grams: 100)); // Default 100g
       notifyListeners();
@@ -35,11 +36,13 @@ class MealProvider with ChangeNotifier {
 
   // Calculate totals
   double get totalKcal => _mealItems.fold(0.0, (sum, item) => sum + item.kcal);
-  double get totalCarbs => _mealItems.fold(0.0, (sum, item) => sum + item.carbs);
-  double get totalProtein => _mealItems.fold(0.0, (sum, item) => sum + item.protein);
+  double get totalCarbs =>
+      _mealItems.fold(0.0, (sum, item) => sum + item.carbs);
+  double get totalProtein =>
+      _mealItems.fold(0.0, (sum, item) => sum + item.protein);
   double get totalFat => _mealItems.fold(0.0, (sum, item) => sum + item.fat);
-  double get totalFiber => _mealItems.fold(0.0, (sum, item) => sum + item.fiber);
-  double get totalSugar => _mealItems.fold(0.0, (sum, item) => sum + item.sugar);
+  double get totalFiber =>
+      _mealItems.fold(0.0, (sum, item) => sum + item.fiber);
 
   // Clear all items
   void clearMeal() {

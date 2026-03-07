@@ -5,17 +5,23 @@ import '../services/supabase_service.dart';
 /// User Profile Provider
 class UserProfileProvider with ChangeNotifier {
   final SupabaseService _supabaseService = SupabaseService();
-  
+
   UserProfile? _userProfile;
+  String? _loadedUserId;
   bool _isLoading = false;
   String? _errorMessage;
 
   UserProfile? get userProfile => _userProfile;
+  String? get loadedUserId => _loadedUserId;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+  bool isLoadedFor(String userId) => _loadedUserId == userId;
 
   Future<void> loadUserProfile(String userId) async {
+    if (_isLoading && _loadedUserId == userId) return;
+
     _isLoading = true;
+    _loadedUserId = userId;
     _errorMessage = null;
     notifyListeners();
 
@@ -32,6 +38,7 @@ class UserProfileProvider with ChangeNotifier {
 
   Future<bool> saveUserProfile(UserProfile profile) async {
     _isLoading = true;
+    _loadedUserId = profile.id;
     _errorMessage = null;
     notifyListeners();
 
@@ -50,6 +57,14 @@ class UserProfileProvider with ChangeNotifier {
   }
 
   void clearError() {
+    _errorMessage = null;
+    notifyListeners();
+  }
+
+  void clearProfile() {
+    _userProfile = null;
+    _loadedUserId = null;
+    _isLoading = false;
     _errorMessage = null;
     notifyListeners();
   }

@@ -26,7 +26,8 @@ class _ResultsScreenState extends State<ResultsScreen> {
     final profileProvider =
         Provider.of<UserProfileProvider>(context, listen: false);
 
-    if (authProvider.user != null) {
+    if (authProvider.user != null &&
+        !profileProvider.isLoadedFor(authProvider.user!.id)) {
       await profileProvider.loadUserProfile(authProvider.user!.id);
     }
   }
@@ -69,7 +70,6 @@ class _ResultsScreenState extends State<ResultsScreen> {
     final totalProtein = mealProvider.totalProtein;
     final totalFat = mealProvider.totalFat;
     final totalFiber = mealProvider.totalFiber;
-    final totalSugar = mealProvider.totalSugar;
 
     // Determine target carbs based on glucose range
     double targetCarbs = 60;
@@ -161,7 +161,6 @@ class _ResultsScreenState extends State<ResultsScreen> {
                   _buildNutrientRow('Protein', totalProtein, 'g'),
                   _buildNutrientRow('Fat', totalFat, 'g'),
                   _buildNutrientRow('Fiber', totalFiber, 'g'),
-                  _buildNutrientRow('Sugar', totalSugar, 'g'),
                 ],
               ),
             ),

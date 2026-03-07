@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../models/user_profile.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_profile_provider.dart';
+import '../meal/meal_builder_screen.dart';
 import '../../widgets/loading_indicator.dart';
 
 /// Profile Screen
@@ -58,13 +59,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         Provider.of<UserProfileProvider>(context, listen: false);
 
     if (authProvider.user == null) return;
+    final userId = authProvider.user!.id;
 
-    if (profileProvider.userProfile == null) {
-      await profileProvider.loadUserProfile(authProvider.user!.id);
+    if (!profileProvider.isLoadedFor(userId)) {
+      await profileProvider.loadUserProfile(userId);
     }
 
     final profile = profileProvider.userProfile;
-    if (profile == null || !mounted) return;
+    if (profile == null || profile.id != userId || !mounted) return;
 
     _applyProfileToForm(profile);
     setState(() {
@@ -203,7 +205,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
 
-    if (!widget.forceInitialSetup) {
+    if (widget.forceInitialSetup) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => const MealBuilderScreen(),
+        ),
+      );
+    } else {
       Navigator.pop(context);
     }
     return true;

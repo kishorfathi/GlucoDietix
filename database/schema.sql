@@ -35,6 +35,17 @@ CREATE TABLE IF NOT EXISTS user_profiles (
   CONSTRAINT glucose_range_check CHECK (glucose_range IN ('low', 'normal', 'high'))
 );
 
+-- Optional extended clinical fields used by the profile form
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS glucose_unit TEXT DEFAULT 'mg/dL';
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS target_glucose_min NUMERIC DEFAULT 70;
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS target_glucose_max NUMERIC DEFAULT 95;
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS weight_kg NUMERIC DEFAULT 70;
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS height_cm NUMERIC DEFAULT 170;
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS diabetes_type TEXT DEFAULT 'Type 2';
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS treatment TEXT DEFAULT 'Diet';
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS update_frequency TEXT DEFAULT 'weekly';
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS last_updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+
 -- 4. Enable Row Level Security (RLS)
 ALTER TABLE foods ENABLE ROW LEVEL SECURITY;
 ALTER TABLE portions ENABLE ROW LEVEL SECURITY;

@@ -31,7 +31,7 @@ class UserProfile {
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
-    final updatedAtRaw = json['updated_at'];
+    final updatedAtRaw = json['last_updated_at'] ?? json['updated_at'];
     return UserProfile(
       id: json['id'] as String,
       diabetes: json['diabetes'] as bool,
@@ -55,6 +55,15 @@ class UserProfile {
       'diabetes': diabetes,
       'glucose_range': glucoseRange,
       'cholesterol_concern': cholesterolConcern,
+      'glucose_unit': glucoseUnit,
+      'target_glucose_min': targetGlucoseMin,
+      'target_glucose_max': targetGlucoseMax,
+      'weight_kg': weightKg,
+      'height_cm': heightCm,
+      'diabetes_type': diabetesType,
+      'treatment': treatment,
+      'update_frequency': updateFrequency,
+      'last_updated_at': (lastUpdatedAt ?? DateTime.now()).toUtc().toIso8601String(),
     };
   }
 
