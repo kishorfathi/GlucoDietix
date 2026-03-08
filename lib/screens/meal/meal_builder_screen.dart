@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/meal_provider.dart';
+import '../../providers/user_profile_provider.dart';
 import '../profile/profile_screen.dart';
 import '../foods/food_search_screen.dart';
 import '../scan/scan_plate_screen.dart';
@@ -15,10 +16,33 @@ class MealBuilderScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
     final mealProvider = Provider.of<MealProvider>(context);
+    final profileProvider = Provider.of<UserProfileProvider>(context);
+
+    // Load profile if not already loaded
+    if (authProvider.user != null &&
+        !profileProvider.isLoadedFor(authProvider.user!.id)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        profileProvider.loadUserProfile(authProvider.user!.id);
+      });
+    }
+
+    final username = profileProvider.userProfile?.username;
+    final displayName =
+        username != null && username.isNotEmpty ? username : 'User';
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('GlucoDietix'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('GlucoDietix', style: TextStyle(fontSize: 20)),
+            Text(
+              'Hello, $displayName',
+              style:
+                  const TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
+            ),
+          ],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.person),

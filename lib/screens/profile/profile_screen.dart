@@ -20,6 +20,7 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _usernameController = TextEditingController();
   final _minController = TextEditingController(text: '70');
   final _maxController = TextEditingController(text: '95');
   final _weightController = TextEditingController(text: '70');
@@ -46,6 +47,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void dispose() {
     _autoSaveTimer?.cancel();
+    _usernameController.dispose();
     _minController.dispose();
     _maxController.dispose();
     _weightController.dispose();
@@ -83,6 +85,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _treatment = profile.treatment;
     _updateFrequency = profile.updateFrequency;
 
+    _usernameController.text = profile.username ?? '';
     _minController.text = profile.targetGlucoseMin.toStringAsFixed(1);
     _maxController.text = profile.targetGlucoseMax.toStringAsFixed(1);
     _weightController.text = profile.weightKg.toStringAsFixed(1);
@@ -151,6 +154,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     final profile = UserProfile(
       id: authProvider.user!.id,
+      username: _usernameController.text.trim().isEmpty
+          ? null
+          : _usernameController.text.trim(),
       diabetes: _diabetes,
       glucoseRange: _glucoseRange,
       cholesterolConcern: _cholesterolConcern,
@@ -281,6 +287,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         const SizedBox(height: 12),
                       ],
+                      TextFormField(
+                        controller: _usernameController,
+                        decoration: const InputDecoration(
+                          labelText: 'Username (Optional)',
+                          border: OutlineInputBorder(),
+                          hintText: 'Enter your display name',
+                        ),
+                        onChanged: (_) => _scheduleAutoSave(),
+                      ),
+                      const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
                         initialValue: _glucoseUnit,
                         decoration: const InputDecoration(

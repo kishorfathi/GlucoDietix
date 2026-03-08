@@ -8,8 +8,8 @@ A Flutter app for managing diet with glucose and cholesterol tracking using Supa
 
 - [ ] Step 1: Install Flutter SDK (if not already installed)
 - [ ] Step 2: Create Supabase account and project
-- [ ] Step 3: Run SQL schema in Supabase
-- [ ] Step 4: Run SQL seed data in Supabase
+- [ ] Step 3: Run SQL schema in Supabase (Enhanced for Sri Lankan foods)
+- [ ] Step 4: Run SQL seed data in Supabase (70+ Sri Lankan foods loaded)
 - [ ] Step 5: Get Supabase URL and anon key
 - [ ] Step 6: Navigate to project directory
 - [ ] Step 7: Run `flutter pub get`
@@ -29,8 +29,10 @@ glucodietix/
 │           └── main/
 │               └── AndroidManifest.xml (camera permissions)
 ├── database/
-│   ├── schema.sql (database tables)
-│   └── seed_data.sql (sample data)
+│   ├── schema.sql (Enhanced database schema for Sri Lankan foods)
+│   ├── seed_data.sql (70+ Sri Lankan foods with nutritional data)
+│   ├── FOODDB_GUIDE.md (Complete food database guide)
+│   └── import_fooddb.py (Python script for importing more foods)
 ├── lib/
 │   ├── main.dart (app entry point)
 │   ├── config/
@@ -105,7 +107,15 @@ If not installed, visit: https://docs.flutter.dev/get-started/install
 2. Copy entire contents of `database/seed_data.sql`
 3. Paste into SQL editor
 4. Click "Run" button
-5. Verify: You should see results showing 5 foods and 10 portions
+5. Verify: You should see results showing **70+ Sri Lankan foods** and **100+ portions**
+
+**What's Loaded:**
+- Rice, hoppers, roti, pittu, bread
+- Vegetable, meat, and fish curries
+- Sambols, mallums, and condiments
+- Snacks, fruits, desserts, beverages
+- Complete nutritional data including GI values
+- Sinhala and Tamil translations
 
 ### Step 5: Get Supabase Credentials
 
@@ -227,20 +237,70 @@ First run will take 2-5 minutes to build. Subsequent runs are faster.
 ## 🗄️ DATABASE TABLES
 
 ### foods
-- Stores Sri Lankan food items
-- Columns: id, name, category, kcal_100g, carbs_100g, protein_100g, fat_100g, fiber_100g, sugar_100g
+- **Enhanced for Sri Lankan Food Composition Database**
+- Contains 70+ ready-to-eat Sri Lankan food items
+- Columns include:
+  - Basic: id, name, name_sinhala, name_tamil, category, sub_category
+  - Macronutrients: carbs_100g, protein_100g, fat_100g, fiber_100g, energy_kcal
+  - Micronutrients: calcium_mg, iron_mg, vitamin_a_mcg, vitamin_c_mg, etc.
+  - Health markers: glycemic_index, glycemic_load, cholesterol_mg
+  - Additional: edible_portion_percent, water_content_percent, is_local, source
 - All users can read
+- **Source**: [foodcompositiondb.lk](https://www.foodcompositiondb.lk) - 243 foods available
 
 ### portions
-- Stores standard serving sizes for each food
+- Stores standard Sri Lankan serving sizes for each food
 - Columns: id, food_id, label, grams
 - Links to foods table
+- Examples: "1 cup", "2 hoppers", "1 tablespoon"
 - All users can read
 
 ### user_profiles
 - Stores user health information
 - Columns: id, diabetes, glucose_range, cholesterol_concern
 - Each user can only see/edit their own profile
+
+---
+
+## 🍛 SRI LANKAN FOOD DATABASE INTEGRATION
+
+This app uses the **Sri Lankan Food Composition Database** from [foodcompositiondb.lk](https://www.foodcompositiondb.lk).
+
+### What's Included:
+- **70+ Sri Lankan foods** with complete nutritional data
+- **Multilingual support**: English, Sinhala (සිංහල), Tamil (தமிழ்)
+- **Categories**: Staples, Curries, Sambols, Mallums, Snacks, Fruits, Desserts, Beverages
+- **100+ portion sizes**: Traditional Sri Lankan measurements
+
+### Food Categories:
+1. **Staples**: Rice, Hoppers, Roti, Pittu, Bread
+2. **Curries**: Vegetable, Meat, Fish, Seafood
+3. **Sambols**: Pol Sambol, Seeni Sambol, Lunumiris, Katta Sambol
+4. **Mallums**: Gotukola, Mukunuwenna, Pol Mallum
+5. **Snacks**: Wade, Samosa, Cutlet, Rolls, Kokis
+6. **Fruits**: Banana, Papaya, Mango, King Coconut
+7. **Desserts**: Watalappan, Kiri Peni, Kavum
+8. **Beverages**: Tea, Faluda, Fresh Juices
+
+### Complete Guide:
+📖 See `database/FOODDB_GUIDE.md` for:
+- Complete food list
+- How to add more foods
+- Searching in Sinhala/Tamil
+- Diabetes-friendly food selection
+- Glycemic Index information
+
+### Example Foods:
+- **White Rice (Cooked)** - සුදු බත් - வெள்ளை சாதம்
+- **String Hoppers** - ඉඳි ආප්ප - இடியப்பம்
+- **Pol Sambol** - පොල් සම්බෝල - தேங்காய் சாம்பல்
+- **Dhal Curry** - පරිප්පු කරිය - பருப்பு குழம்பு
+
+### Research Citation:
+**Published Study**: "Development of a country-specific food composition database for Sri Lanka"
+- Journal: Food Composition and Analysis (Elsevier), 2025
+- Project: CoTaSS 3, funded by Medical Research Council UK
+- Foods: 243 ready-to-eat items commonly consumed in Sri Lanka
 
 ---
 
@@ -490,7 +550,7 @@ if (profileProvider.userProfile!.glucoseRange == 'high') {
 ## 🔄 NEXT STEPS (BEYOND MVP)
 
 1. Add food images
-2. Implement AI food detection for scanned plates
+2. Implement ML food detection for scanned plates
 3. Add meal history and tracking
 4. Add charts and analytics
 5. Add meal recommendations

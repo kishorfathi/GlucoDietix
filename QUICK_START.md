@@ -1,180 +1,371 @@
-# 🚀 QUICK START - GlucoDietix
+# 🚀 QUICK START - GlucoDietix with Sri Lankan Food Database
 
-## For Absolute Beginners - Follow These Exact Steps
+## ⚡ 5-Minute Setup Guide
 
-### STEP 1: Set Up Supabase (5 minutes)
+**Your app is already configured! Follow these steps to load the database and run:**
 
-1. Go to https://supabase.com
-2. Click "Start your project" → Sign up with GitHub or email
-3. Click "New Project"
-4. Fill in:
-   - Name: `glucodietix`
-   - Password: (make one up and save it)
-   - Region: (pick closest to you)
-5. Click "Create new project"
-6. **WAIT 2-3 MINUTES** for project to initialize
+---
 
-### STEP 2: Create Database Tables (2 minutes)
+## ✅ STEP 1: Load Database Schema (2 minutes)
 
-1. In Supabase, left sidebar → Click "SQL Editor"
-2. Click "+ New query"
-3. Open the file: `database/schema.sql` in your code editor
-4. Copy ALL the text (Ctrl+A, Ctrl+C)
-5. Paste into Supabase SQL editor (Ctrl+V)
-6. Click "Run" at bottom right
-7. You should see: "Success. No rows returned" ✅
+1. **Go to:** https://app.supabase.com
+2. **Login** and select your project
+3. **Click** "SQL Editor" (left sidebar)
+4. **Click** "New Query"
+5. **Open file:** `database/schema.sql` in VS Code
+6. **Copy ALL content** (Ctrl+A, then Ctrl+C)
+7. **Paste** into Supabase SQL editor (Ctrl+V)
+8. **Click** "Run" button (bottom right)
+9. **Wait** for: ✅ "Success. No rows returned"
 
-### STEP 3: Add Sample Food Data (1 minute)
+**✅ Database structure created!**
 
-1. In Supabase SQL Editor, click "+ New query" again
-2. Open the file: `database/seed_data.sql`
-3. Copy ALL the text
-4. Paste into Supabase SQL editor
-5. Click "Run"
-6. You should see: Results showing 5 foods and 10 portions ✅
+**Note:** If you've run this before and get policy errors, that's OK! The schema is now safe to re-run multiple times. It will update existing structures without errors.
 
-### STEP 4: Get Your Credentials (1 minute)
+**If you want to start completely fresh:**
+- Run `database/cleanup.sql` first
+- Then run `database/schema.sql`
 
-1. In Supabase, left sidebar → Click "Settings" (gear icon)
-2. Click "API" under Project Settings
-3. You'll see two things we need:
-   
-   **A) Project URL** (looks like):
+---
+
+## ✅ STEP 2: Load Sri Lankan Food Data (2 minutes)
+
+1. **In SQL Editor**, click "New Query"
+2. **Open file:** `database/seed_data.sql` in VS Code
+3. **Copy ALL content** (Ctrl+A, then Ctrl+C)
+4. **Paste** into Supabase SQL editor (Ctrl+V)
+5. **Click** "Run" button
+6. **Wait** ~30 seconds
+7. **See results** showing:
    ```
-   https://abcdefghijklm.supabase.co
-   ```
-   Copy this entire URL ✅
-   
-   **B) Project API keys → anon public** (very long text starting with eyJ...):
-   ```
-   eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzd...
-   ```
-   Click "Copy" button next to it ✅
-
-4. Keep these somewhere (Notepad, etc.)
-
-### STEP 5: Configure Your App (2 minutes)
-
-1. In VS Code, open: `lib/config/supabase_config.dart`
-2. You'll see:
-   ```dart
-   static const String supabaseUrl = 'YOUR_SUPABASE_URL_HERE';
-   static const String supabaseAnonKey = 'YOUR_SUPABASE_ANON_KEY_HERE';
+   Total Foods: 70+
+   Total Portions: 100+
+   Categories: 8
    ```
 
-3. Replace with your actual values (paste what you copied):
-   ```dart
-   static const String supabaseUrl = 'https://abcdefghijklm.supabase.co';
-   static const String supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3M...';
-   ```
+**✅ 70+ Sri Lankan foods loaded!**
 
-4. **Save the file** (Ctrl+S)
+**What you now have:**
+- Rice varieties (White, Red, Kiri Bath)
+- Hoppers (String, Plain, Egg)
+- Curries (Dhal, Chicken, Fish, Vegetable)
+- Sambols (Pol, Seeni, Lunumiris)
+- Mallums (Gotukola, Mukunuwenna)
+- Snacks (Wade, Samosa, Cutlet)
+- Fruits, Desserts, Beverages
+- All with Sinhala (සිංහල) & Tamil (தமிழ்) names!
 
-### STEP 6: Install Dependencies (2 minutes)
+---
 
-Open terminal in VS Code (Terminal → New Terminal) and type:
+## ✅ STEP 3: Install Dependencies (30 seconds)
 
-```bash
+**Open Terminal in VS Code** and run:
+
+```powershell
+cd C:\Users\kishor\Desktop\FinalResearchGlucoDietix\GlucoDietix
 flutter pub get
 ```
 
-Press Enter. Wait for it to finish (you'll see "exit code 0").
+**Wait for:** "Got dependencies!" ✅
 
-### STEP 7: Connect Your Phone (3 minutes)
+---
 
-**On your Android phone:**
-1. Go to Settings → About Phone
-2. Tap "Build Number" 7 times (enables Developer Mode)
-3. Go back → Developer Options
-4. Turn on "USB Debugging"
-5. Connect phone to computer with USB cable
-6. On phone screen, tap "Allow USB Debugging" when popup appears
+## ✅ STEP 4: Verify Supabase Connection (30 seconds)
 
-**In VS Code terminal, check connection:**
-```bash
-flutter devices
+**Your credentials are already set!**
+
+To verify, check this file:
+```
+lib/config/supabase_config.dart
 ```
 
-You should see your phone listed ✅
+You should see:
+```dart
+static const String supabaseUrl = 'https://hondqqvhuzcxajehzrlo.supabase.co';
+static const String supabaseAnonKey = 'eyJhbGci...';
+```
 
-### STEP 8: Run the App! (5 minutes first time)
+**If different project**, update with your credentials from:
+Supabase → Settings → API
 
-In VS Code terminal:
-```bash
+**✅ Credentials configured!**
+
+---
+
+## ✅ STEP 5: Connect Device (30 seconds)
+
+**Choose ONE option:**
+
+### Option A: Android Phone
+1. Go to Settings → About Phone
+2. Tap "Build Number" 7 times
+3. Settings → Developer Options → Enable "USB Debugging"
+4. Connect via USB cable
+5. Approve prompt on phone
+
+### Option B: Android Emulator
+1. Open Android Studio
+2. Click "Device Manager"
+3. Start an emulator
+4. Wait for it to boot
+
+### Option C: Windows Desktop
+```powershell
+flutter config --enable-windows-desktop
+```
+
+**Verify:**
+```powershell
+flutter devices
+```
+Should see at least one device ✅
+
+---
+
+## ✅ STEP 6: RUN THE APP! 🚀
+
+```powershell
 flutter run
 ```
 
-**First time takes 3-5 minutes** to build. ⏳
-Subsequent runs are much faster (30 seconds).
+**What happens:**
+- First build: 2-3 minutes ⏳
+- App installs automatically
+- App launches! 🎉
 
-You'll see app install and launch on your phone! 🎉
-
----
-
-## 🎯 USING THE APP - QUICK GUIDE
-
-### First Time Setup:
-
-1. **Register**
-   - Tap "Don't have an account? Register"
-   - Enter email: `test@example.com`
-   - Enter password: `password123` (min 6 chars)
-   - Tap "Register"
-   - Tap "Already have an account? Login"
-
-2. **Login**
-   - Email: `test@example.com`
-   - Password: `password123`
-   - Tap "Login"
-
-3. **Set Profile**
-   - Tap profile icon (top right)
-   - Choose your health settings
-   - Tap "Save Profile"
-
-### Build Your First Meal:
-
-1. **Add Food**
-   - Tap "Add Food" button
-   - In search box, type: `rice`
-   - Tap + icon next to "White Rice (Cooked)"
-   - Select "1 cup" portion
-   - Tap "Add to Meal"
-
-2. **Add More Foods**
-   - Search for "dhal"
-   - Add "Dhal Curry"
-   - Choose portion
-   - Repeat for 2-3 more foods
-
-3. **See Results**
-   - Tap "Calculate Nutrients"
-   - View:
-     - ✅ "Meal is OK!" (green) or ❌ "Not OK" (red)
-     - Total carbs, protein, fat, etc.
-     - Recommendations (if over carb limit)
+**✅ APP IS RUNNING!**
 
 ---
 
-## ❌ WHAT IF SOMETHING GOES WRONG?
+## 🎮 TEST THE APP (2 minutes)
 
-### "Build failed" or errors in terminal
+### 1. Create Account
+```
+Tap "Register"
+Email: test@example.com
+Password: test1234
+Tap "Sign Up"
+```
 
-```bash
+### 2. Set Profile
+```
+Choose: Diabetes Yes/No
+Choose: Glucose Range
+Choose: Cholesterol Concern
+Tap "Save Profile"
+```
+
+### 3. Search Sri Lankan Foods
+**Try these searches:**
+- `rice` → See White Rice, Red Rice, Kiri Bath
+- `hopper` → See String Hoppers, Plain Hopper, Egg Hopper
+- `කරිය` → See curries in Sinhala!
+- `சாதம்` → See rice in Tamil!
+- `sambol` → See Pol Sambol, Seeni Sambol
+
+### 4. Build a Sample Meal
+```
+1. Search "rice" → Add "White Rice" → "1 cup"
+2. Search "dhal" → Add "Dhal Curry" → "1/2 cup"
+3. Search "sambol" → Add "Pol Sambol" → "1 tablespoon"
+4. Tap "Calculate Results"
+5. See nutrition breakdown!
+```
+
+**✅ Everything working!**
+
+---
+
+## 🍛 WHAT'S IN YOUR DATABASE
+
+After setup, you have access to:
+
+### Staples (බාල ආහාර / பிரதான உணவு)
+- White Rice, Red Rice, Kiri Bath
+- String Hoppers, Plain Hopper, Egg Hopper
+- Pol Roti, Gotukola Roti, Plain Roti
+- Pittu, Kurakkan Pittu
+- White Bread, Brown Bread
+
+### Curries (ව්‍යඤ්ජන / கறிகள்)
+- Dhal, Potato, Pumpkin, Jackfruit
+- Brinjal, Green Bean, Cabbage, Carrot
+- Chicken, Fish, Egg, Dried Fish
+- Beef, Pork, Prawn, Crab
+
+### Sambols & Mallums (සම්බෝල / சாம்பல்)
+- Pol Sambol, Seeni Sambol, Lunumiris, Katta Sambol
+- Gotukola Sambol, Gotukola Mallum, Mukunuwenna Mallum
+
+### Snacks (කෑම වර්ග / சிற்றுண்டிகள்)
+- Wade, Samosa, Cutlet, Rolls
+- Kokis, Aluwa
+
+### Fruits (පලතුරු / பழங்கள்)
+- Banana, Papaya, Mango, Pineapple
+- Watermelon, Guava, Wood Apple, King Coconut
+
+### Desserts & Beverages
+- Watalappan, Kiri Peni, Kavum
+- Plain Tea, Milk Tea, Faluda
+
+**Total: 70+ foods with complete nutrition data!**
+
+---
+
+## 🔧 TROUBLESHOOTING
+
+### Problem: "Invalid API credentials"
+**Solution:**
+- Check `lib/config/supabase_config.dart`
+- Verify you used **anon public** key (not service_role)
+- Remove any extra spaces
+
+### Problem: "No foods found"
+**Solution:**
+- Re-run `database/seed_data.sql` in Supabase
+- Check: `SELECT COUNT(*) FROM foods;` should be 70+
+
+### Problem: Build fails
+**Solution:**
+```powershell
 flutter clean
 flutter pub get
 flutter run
 ```
 
-### "Invalid API key" error
+### Problem: No device found
+**Solution:**
+- Android: Check USB debugging enabled
+- Emulator: Make sure it's running
+- Windows: Run `flutter config --enable-windows-desktop`
 
-1. Double-check you copied the **anon public** key (not service_role)
-2. Make sure you didn't add spaces before/after the URL or key
-3. Restart the app completely (stop and run again)
+### Problem: Sinhala/Tamil shows as boxes
+**Solution:**
+- This is normal on some devices
+- Most modern phones display correctly
+- App still works fine
 
-### Can't see any foods
+---
 
-1. Go to Supabase → Table Editor → foods table
+## 📚 ADDITIONAL GUIDES
+
+For more detailed information:
+
+1. **`SETUP_GUIDE.md`** - Complete step-by-step setup (20 pages!)
+2. **`database/FOODDB_GUIDE.md`** - Food database reference
+3. **`database/DIABETES_FOOD_GUIDE.md`** - Diabetes meal planning
+4. **`README.md`** - Full project documentation
+
+---
+
+## 🎯 QUICK COMMANDS
+
+```powershell
+# Navigate to project
+cd C:\Users\kishor\Desktop\FinalResearchGlucoDietix\GlucoDietix
+
+# Install dependencies
+flutter pub get
+
+# Check devices
+flutter devices
+
+# Run app
+flutter run
+
+# Clean build (if errors)
+flutter clean
+flutter pub get
+flutter run
+
+# Build release APK
+flutter build apk
+```
+
+---
+
+## ✅ SUCCESS CHECKLIST
+
+After completing this guide:
+
+- [x] Supabase database loaded with schema
+- [x] 70+ Sri Lankan foods in database
+- [x] 100+ portions with Sri Lankan measurements
+- [x] App credentials configured
+- [x] Dependencies installed
+- [x] Device connected
+- [x] App running successfully
+- [x] Can search foods in 3 languages
+- [x] Can build and calculate meals
+- [x] Can see GI values and recommendations
+
+---
+
+## 🎉 CONGRATULATIONS!
+
+You now have a fully working **GlucoDietix app** with:
+
+✅ **70+ Sri Lankan foods** (White Rice, Hoppers, Curries, Sambols...)
+✅ **Multilingual** (English, සිංහල, தமிழ்)
+✅ **Complete nutrition** (Macros, micros, vitamins, GI values)
+✅ **Traditional portions** (1 cup rice, 2 hoppers, 1 tablespoon sambol)
+✅ **Diabetes features** (Glycemic Index, carb tracking, recommendations)
+✅ **Personalized** (Profile-based suggestions)
+
+---
+
+## 📱 APP FEATURES
+
+- ✅ Search foods by name (any language)
+- ✅ Filter by category (Staples, Curries, etc.)
+- ✅ Find low-GI foods for diabetes
+- ✅ Select traditional portion sizes
+- ✅ Build complete meals
+- ✅ Get real-time calculations
+- ✅ Receive personalized recommendations
+- ✅ Track carbs, protein, fat, fiber, calories
+- ✅ See vitamin and mineral content
+- ✅ Check glycemic index values
+
+---
+
+## 🚀 NEXT STEPS
+
+1. **Explore the database** - Try searching different foods
+2. **Build sample meals** - Traditional breakfast, rice & curry
+3. **Check GI values** - Find diabetes-friendly options
+4. **Read the guides** - Learn about meal planning
+5. **Customize** - Add your own favorite foods
+
+---
+
+## 🆘 NEED MORE HELP?
+
+**For detailed explanations:**
+- See `SETUP_GUIDE.md` (comprehensive 20-page guide)
+
+**For food database:**
+- See `database/FOODDB_GUIDE.md`
+
+**For diabetes planning:**
+- See `database/DIABETES_FOOD_GUIDE.md`
+
+**For technical details:**
+- See `README.md`
+
+---
+
+**Total Setup Time:** ~5 minutes
+**Database Source:** https://www.foodcompositiondb.lk
+**Foods Available:** 70+ (expandable to 243)
+
+**🍛 සුභ පැතුම්!** (Good luck!)
+**🥗 வாழ்த்துக்கள்!** (Congratulations!)
+
+---
+
+**Last Updated:** March 8, 2026 | **Version:** 1.0.0
 2. Click "Insert row" manually and add a test food
 
 ### Phone not detected

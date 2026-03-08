@@ -1,6 +1,7 @@
 /// User Profile Model
 class UserProfile {
   final String id;
+  final String? username;
   final bool diabetes;
   final String glucoseRange; // "low", "normal", "high"
   final bool cholesterolConcern;
@@ -16,6 +17,7 @@ class UserProfile {
 
   UserProfile({
     required this.id,
+    this.username,
     required this.diabetes,
     required this.glucoseRange,
     required this.cholesterolConcern,
@@ -34,6 +36,7 @@ class UserProfile {
     final updatedAtRaw = json['last_updated_at'] ?? json['updated_at'];
     return UserProfile(
       id: json['id'] as String,
+      username: json['username'] as String?,
       diabetes: json['diabetes'] as bool,
       glucoseRange: json['glucose_range'] as String,
       cholesterolConcern: json['cholesterol_concern'] as bool,
@@ -45,13 +48,15 @@ class UserProfile {
       diabetesType: (json['diabetes_type'] as String?) ?? 'Type 2',
       treatment: (json['treatment'] as String?) ?? 'Diet',
       updateFrequency: (json['update_frequency'] as String?) ?? 'weekly',
-      lastUpdatedAt: updatedAtRaw is String ? DateTime.tryParse(updatedAtRaw) : null,
+      lastUpdatedAt:
+          updatedAtRaw is String ? DateTime.tryParse(updatedAtRaw) : null,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      'username': username,
       'diabetes': diabetes,
       'glucose_range': glucoseRange,
       'cholesterol_concern': cholesterolConcern,
@@ -63,12 +68,14 @@ class UserProfile {
       'diabetes_type': diabetesType,
       'treatment': treatment,
       'update_frequency': updateFrequency,
-      'last_updated_at': (lastUpdatedAt ?? DateTime.now()).toUtc().toIso8601String(),
+      'last_updated_at':
+          (lastUpdatedAt ?? DateTime.now()).toUtc().toIso8601String(),
     };
   }
 
   UserProfile copyWith({
     String? id,
+    String? username,
     bool? diabetes,
     String? glucoseRange,
     bool? cholesterolConcern,
@@ -84,6 +91,7 @@ class UserProfile {
   }) {
     return UserProfile(
       id: id ?? this.id,
+      username: username ?? this.username,
       diabetes: diabetes ?? this.diabetes,
       glucoseRange: glucoseRange ?? this.glucoseRange,
       cholesterolConcern: cholesterolConcern ?? this.cholesterolConcern,

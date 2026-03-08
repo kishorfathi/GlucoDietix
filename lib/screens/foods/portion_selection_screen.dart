@@ -3,7 +3,9 @@ import 'package:provider/provider.dart';
 import '../../models/food.dart';
 import '../../models/portion.dart';
 import '../../services/supabase_service.dart';
+import '../../services/health_recommendation_service.dart';
 import '../../providers/meal_provider.dart';
+import '../../providers/user_profile_provider.dart';
 import '../../widgets/loading_indicator.dart';
 
 /// Portion Selection Screen
@@ -82,6 +84,15 @@ class _PortionSelectionScreenState extends State<PortionSelectionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final profileProvider = Provider.of<UserProfileProvider>(context);
+    final healthService = HealthRecommendationService();
+
+    // Get health recommendation for this food
+    final foodRecommendation = healthService.getFoodRecommendation(
+      widget.food,
+      profileProvider.userProfile,
+    );
+
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.food.name),
@@ -119,11 +130,61 @@ class _PortionSelectionScreenState extends State<PortionSelectionScreen> {
                                   'Fat: ${widget.food.fat100g.toStringAsFixed(1)}g'),
                               Text(
                                   'Calories: ${widget.food.energyKcal.toStringAsFixed(0)} kcal'),
+                              if (widget.food.glycemicIndex != null) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Glycemic Index: ${widget.food.glycemicIndex!.toStringAsFixed(0)}',
+                                  style: TextStyle(
+                                    color: widget.food.glycemicIndex! > 70
+                                        ? Colors.red
+                                        : widget.food.glycemicIndex! < 55
+                                            ? Colors.green
+                                            : Colors.orange,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
                       ),
                     ),
+
+                    // Health Recommendation Card
+                    if (profileProvider.userProfile != null) ...[
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: Card(
+                          color: foodRecommendation.contains('⚠️')
+                              ? Colors.orange.shade50
+                              : Colors.green.shade50,
+                          child: Padding(
+                            padding: const EdgeInsets.all(12.0),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(
+                                  foodRecommendation.contains('⚠️')
+                                      ? Icons.warning_amber
+                                      : Icons.check_circle,
+                                  color: foodRecommendation.contains('⚠️')
+                                      ? Colors.orange
+                                      : Colors.green,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    foodRecommendation,
+                                    style: const TextStyle(fontSize: 14),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
                     const Padding(
                       padding: EdgeInsets.all(16.0),
                       child: Text(

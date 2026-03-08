@@ -5,6 +5,7 @@ import '../../providers/meal_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_profile_provider.dart';
 import '../../models/meal_item.dart';
+import '../../services/health_recommendation_service.dart';
 
 /// Results Screen
 class ResultsScreen extends StatefulWidget {
@@ -63,6 +64,13 @@ class _ResultsScreenState extends State<ResultsScreen> {
   Widget build(BuildContext context) {
     final mealProvider = Provider.of<MealProvider>(context);
     final profileProvider = Provider.of<UserProfileProvider>(context);
+    final healthService = HealthRecommendationService();
+
+    // Get health analysis
+    final analysis = healthService.analyzeMeal(
+      mealProvider.mealItems,
+      profileProvider.userProfile,
+    );
 
     // Calculate totals
     final totalKcal = mealProvider.totalKcal;
@@ -102,45 +110,175 @@ class _ResultsScreenState extends State<ResultsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Meal Results'),
+        title: const Text('Meal Analysis'),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
+          // Health Score Card
           Card(
-            color: isOk ? Colors.green.shade50 : Colors.red.shade50,
+            color: _getHealthScoreColor(analysis.healthScore),
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Icon(
-                        isOk ? Icons.check_circle : Icons.warning,
-                        color: isOk ? Colors.green : Colors.red,
-                        size: 32,
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Health Score',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.white.withOpacity(0.9),
+                            ),
+                          ),
+                          Text(
+                            '${analysis.healthScore}/100',
+                            style: const TextStyle(
+                              fontSize: 36,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        isOk ? 'Meal is OK!' : 'Not OK',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: isOk ? Colors.green : Colors.red,
-                        ),
+                      Icon(
+                        _getHealthScoreIcon(analysis.overallRating),
+                        size: 64,
+                        color: Colors.white,
                       ),
                     ],
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Target carbs: ${targetCarbs.toStringAsFixed(0)}g',
-                    style: const TextStyle(fontSize: 16),
+                    _getHealthScoreLabel(analysis.overallRating),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
                   ),
-                  Text(
-                    'Your carbs: ${totalCarbs.toStringAsFixed(1)}g',
-                    style: const TextStyle(fontSize: 16),
+                ],
+              ),
+            ),
+          ),
+
+          // Warnings
+          if (analysis.warnings.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Card(
+              color: Colors.orange.shade50,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.warning_amber, color: Colors.orange),
+                        SizedBox(width: 8),
+                        Text(
+                          'Important Warnings',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    ...analysis.warnings.map((warning) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4.0),
+                          child: Text(
+                            warning,
+                            style: const TextStyle(fontSize: 15),
+                          ),
+                        )),
+                  ],
+                ),
+              ),
+            ),
+          ],
+
+          // Portion Suggestions
+          if (analysis.portionSuggestions.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Card(
+              color: Colors.blue.shade50,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.food_bank, color: Colors.blue),
+                        SizedBox(width: 8),
+                        Text(
+                          'Portion Adjustments',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    ...analysis.portionSuggestions.map((suggestion) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4.0),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.arrow_right,
+                                  size: 20, color: Colors.blue),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  suggestion,
+                                  style: const TextStyle(fontSize: 15),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )),
+                  ],
+                ),
+              ),
+            ),
+          ],
+
+          // Recommendations
+          const SizedBox(height: 16),
+          Card(
+            color: Colors.green.shade50,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.lightbulb, color: Colors.green),
+                      SizedBox(width: 8),
+                      Text(
+                        'Health Recommendations',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
+                  const SizedBox(height: 12),
+                  ...analysis.recommendations.map((rec) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4.0),
+                        child: Text(
+                          rec,
+                          style: const TextStyle(fontSize: 15),
+                        ),
+                      )),
                 ],
               ),
             ),
@@ -239,6 +377,43 @@ class _ResultsScreenState extends State<ResultsScreen> {
         ],
       ),
     );
+  }
+
+  Color _getHealthScoreColor(int score) {
+    if (score >= 80) return Colors.green.shade600;
+    if (score >= 60) return Colors.lightGreen.shade600;
+    if (score >= 40) return Colors.orange.shade600;
+    return Colors.red.shade600;
+  }
+
+  IconData _getHealthScoreIcon(String rating) {
+    switch (rating) {
+      case 'excellent':
+        return Icons.sentiment_very_satisfied;
+      case 'good':
+        return Icons.sentiment_satisfied;
+      case 'moderate':
+        return Icons.sentiment_neutral;
+      case 'caution':
+        return Icons.sentiment_dissatisfied;
+      default:
+        return Icons.help_outline;
+    }
+  }
+
+  String _getHealthScoreLabel(String rating) {
+    switch (rating) {
+      case 'excellent':
+        return 'Excellent Choice!';
+      case 'good':
+        return 'Good Choice';
+      case 'moderate':
+        return 'Moderate - Can Improve';
+      case 'caution':
+        return 'Needs Adjustment';
+      default:
+        return 'Unknown';
+    }
   }
 
   Widget _buildNutrientRow(String label, double value, String unit) {
