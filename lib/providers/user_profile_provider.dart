@@ -18,8 +18,12 @@ class UserProfileProvider with ChangeNotifier {
   bool isLoadedFor(String userId) => _loadedUserId == userId;
 
   Future<void> loadUserProfile(String userId) async {
-    if (_isLoading && _loadedUserId == userId) return;
+    if (_isLoading && _loadedUserId == userId) {
+      debugPrint('UserProfileProvider: Already loading profile for $userId');
+      return;
+    }
 
+    debugPrint('UserProfileProvider: Loading profile for $userId');
     _isLoading = true;
     _loadedUserId = userId;
     _errorMessage = null;
@@ -27,10 +31,14 @@ class UserProfileProvider with ChangeNotifier {
 
     try {
       _userProfile = await _supabaseService.getUserProfile(userId);
+      debugPrint(
+          'UserProfileProvider: Profile loaded successfully: ${_userProfile != null}');
       _isLoading = false;
       notifyListeners();
     } catch (e) {
+      debugPrint('UserProfileProvider: Error loading profile: $e');
       _errorMessage = e.toString();
+      _userProfile = null;
       _isLoading = false;
       notifyListeners();
     }

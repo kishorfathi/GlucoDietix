@@ -10,11 +10,15 @@ import 'widgets/auth_gate.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Supabase
-  await Supabase.initialize(
-    url: SupabaseConfig.supabaseUrl,
-    anonKey: SupabaseConfig.supabaseAnonKey,
-  );
+  try {
+    // Initialize Supabase
+    await Supabase.initialize(
+      url: SupabaseConfig.supabaseUrl,
+      anonKey: SupabaseConfig.supabaseAnonKey,
+    );
+  } catch (e) {
+    debugPrint('Supabase initialization error: $e');
+  }
 
   runApp(const MyApp());
 }
@@ -36,6 +40,10 @@ class MyApp extends StatelessWidget {
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
           useMaterial3: true,
+          appBarTheme: const AppBarTheme(
+            centerTitle: true,
+            elevation: 0,
+          ),
         ),
         home: const AuthGate(),
       ),

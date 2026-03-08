@@ -32,6 +32,18 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
 
   Future<void> _takePicture() async {
     try {
+      // Show instruction for web users
+      if (kIsWeb && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'Please allow camera access when prompted by your browser'),
+            duration: Duration(seconds: 2),
+            backgroundColor: Colors.blue,
+          ),
+        );
+      }
+
       final XFile? photo = await _picker.pickImage(
         source: ImageSource.camera,
         maxWidth: 1920,
@@ -59,8 +71,10 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error taking picture: $e'),
+            content: Text(
+                'Error taking picture: ${e.toString().contains('camera') ? 'Camera access denied. Please allow camera access in browser settings.' : e}'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
           ),
         );
       }
@@ -111,6 +125,17 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
     });
 
     try {
+      // Show progress message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('🔍 ML is analyzing your meal...'),
+            duration: Duration(seconds: 2),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+
       // Load available foods from database
       final foods = await _supabaseService.searchFoods();
 
@@ -130,8 +155,17 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text(
-                  'No foods detected. Try another image or manual selection.'),
+                  '⚠️ No foods detected. Try another image or use manual selection.'),
               backgroundColor: Colors.orange,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('✅ Detected ${detected.length} food item(s)!'),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 2),
             ),
           );
         }
@@ -143,8 +177,9 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Detection error: $e'),
+            content: Text('❌ Detection error: $e'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
           ),
         );
       }
@@ -153,6 +188,17 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
 
   Future<void> _addToMealAndAnalyze() async {
     if (_detectedFoods == null || _detectedFoods!.isEmpty) return;
+
+    // Show loading message
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('📊 Analyzing your meal for health recommendations...'),
+          duration: Duration(seconds: 2),
+          backgroundColor: Colors.blue,
+        ),
+      );
+    }
 
     final mealProvider = Provider.of<MealProvider>(context, listen: false);
     final profileProvider =
@@ -241,19 +287,36 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
               ),
               ElevatedButton.icon(
                 onPressed: _takePicture,
-                icon: const Icon(Icons.camera),
-                label: const Text('Take Picture'),
+                icon: const Icon(Icons.camera, size: 24),
+                label: const Text(
+                  'Take Picture',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
                 style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  padding: const EdgeInsets.symmetric(vertical: 18),
+                  backgroundColor: Colors.yellow[700],
+                  foregroundColor: Colors.black87,
+                  elevation: 4,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
               const SizedBox(height: 8),
               OutlinedButton.icon(
                 onPressed: _pickFromGallery,
-                icon: const Icon(Icons.photo_library),
-                label: const Text('Pick from Gallery'),
+                icon: const Icon(Icons.photo_library, size: 24),
+                label: const Text(
+                  'Pick from Gallery',
+                  style: TextStyle(fontSize: 16),
+                ),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
+                  side: const BorderSide(color: Colors.green, width: 2),
+                  foregroundColor: Colors.green,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ] else ...[
@@ -280,8 +343,19 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
                         const LoadingIndicator(),
                         const SizedBox(height: 8),
                         const Text(
-                          'Detecting foods...',
-                          style: TextStyle(fontSize: 16, color: Colors.grey),
+                          '🔍 ML is detecting foods...',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'This may take 2-3 seconds',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 14, color: Colors.grey),
                         ),
                         const SizedBox(height: 16),
                       ],
@@ -414,12 +488,19 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
               if (_detectedFoods != null && _detectedFoods!.isNotEmpty) ...[
                 ElevatedButton.icon(
                   onPressed: _addToMealAndAnalyze,
-                  icon: const Icon(Icons.analytics),
-                  label: const Text('Add All to Meal & Analyze'),
+                  icon: const Icon(Icons.analytics, size: 24),
+                  label: const Text(
+                    'Add All to Meal & Analyze',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
                   style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    backgroundColor: Colors.green,
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    backgroundColor: Colors.green[600],
                     foregroundColor: Colors.white,
+                    elevation: 4,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -430,6 +511,11 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
                 label: const Text('Manual Food Selection'),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
+                  side: const BorderSide(color: Colors.blue, width: 2),
+                  foregroundColor: Colors.blue,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
               const SizedBox(height: 8),
@@ -445,6 +531,11 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
                 label: const Text('Retake Picture'),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
+                  side: const BorderSide(color: Colors.grey, width: 2),
+                  foregroundColor: Colors.grey[700],
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ],

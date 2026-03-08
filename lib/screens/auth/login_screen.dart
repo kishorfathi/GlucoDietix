@@ -48,79 +48,116 @@ class _LoginScreenState extends State<LoginScreen> {
     final authProvider = Provider.of<AuthProvider>(context);
 
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Login'),
+        title: const Text('Login to GlucoDietix'),
+        backgroundColor: Colors.green,
+        foregroundColor: Colors.white,
       ),
       body: authProvider.isLoading
           ? const LoadingIndicator()
-          : Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'GlucoDietix',
-                      style: Theme.of(context).textTheme.headlineMedium,
-                    ),
-                    const SizedBox(height: 32),
-                    TextFormField(
-                      controller: _emailController,
-                      decoration: const InputDecoration(
-                        labelText: 'Email',
-                        border: OutlineInputBorder(),
+          : SafeArea(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24.0),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const SizedBox(height: 40),
+                      Icon(
+                        Icons.restaurant_menu,
+                        size: 80,
+                        color: Colors.green[700],
                       ),
-                      keyboardType: TextInputType.emailAddress,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your email';
-                        }
-                        if (!value.contains('@')) {
-                          return 'Please enter a valid email';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _passwordController,
-                      decoration: const InputDecoration(
-                        labelText: 'Password',
-                        border: OutlineInputBorder(),
+                      const SizedBox(height: 16),
+                      Text(
+                        'GlucoDietix',
+                        textAlign: TextAlign.center,
+                        style:
+                            Theme.of(context).textTheme.headlineLarge?.copyWith(
+                                  color: Colors.green[700],
+                                  fontWeight: FontWeight.bold,
+                                ),
                       ),
-                      obscureText: true,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your password';
-                        }
-                        if (value.length < 6) {
-                          return 'Password must be at least 6 characters';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
+                      const SizedBox(height: 8),
+                      Text(
+                        'Your ML-powered diabetes meal analyzer',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Colors.grey[600],
+                            ),
+                      ),
+                      const SizedBox(height: 48),
+                      TextFormField(
+                        controller: _emailController,
+                        decoration: const InputDecoration(
+                          labelText: 'Email',
+                          prefixIcon: Icon(Icons.email),
+                          border: OutlineInputBorder(),
+                        ),
+                        keyboardType: TextInputType.emailAddress,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter your email';
+                          }
+                          if (!value.contains('@')) {
+                            return 'Please enter a valid email';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _passwordController,
+                        decoration: const InputDecoration(
+                          labelText: 'Password',
+                          prefixIcon: Icon(Icons.lock),
+                          border: OutlineInputBorder(),
+                        ),
+                        obscureText: true,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter your password';
+                          }
+                          if (value.length < 6) {
+                            return 'Password must be at least 6 characters';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 24),
+                      ElevatedButton(
                         onPressed: _signIn,
-                        child: const Text('Login'),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const RegisterScreen(),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                        );
-                      },
-                      child: const Text('Don\'t have an account? Register'),
-                    ),
-                  ],
+                        ),
+                        child: const Text(
+                          'Login',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const RegisterScreen(),
+                            ),
+                          );
+                        },
+                        child: const Text('Don\'t have an account? Register'),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
