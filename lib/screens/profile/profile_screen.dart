@@ -474,35 +474,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       const SizedBox(height: 8),
                       const Text('Glucose Trend'),
-                      RadioListTile<String>(
-                        title: const Text('Low'),
-                        value: 'low',
+                      RadioGroup<String>(
                         groupValue: _glucoseRange,
                         onChanged: (value) {
                           if (value == null) return;
                           setState(() => _glucoseRange = value);
                           _scheduleAutoSave();
                         },
-                      ),
-                      RadioListTile<String>(
-                        title: const Text('Normal'),
-                        value: 'normal',
-                        groupValue: _glucoseRange,
-                        onChanged: (value) {
-                          if (value == null) return;
-                          setState(() => _glucoseRange = value);
-                          _scheduleAutoSave();
-                        },
-                      ),
-                      RadioListTile<String>(
-                        title: const Text('High'),
-                        value: 'high',
-                        groupValue: _glucoseRange,
-                        onChanged: (value) {
-                          if (value == null) return;
-                          setState(() => _glucoseRange = value);
-                          _scheduleAutoSave();
-                        },
+                        child: const Column(
+                          children: [
+                            RadioListTile<String>(
+                              title: Text('Low'),
+                              value: 'low',
+                            ),
+                            RadioListTile<String>(
+                              title: Text('Normal'),
+                              value: 'normal',
+                            ),
+                            RadioListTile<String>(
+                              title: Text('High'),
+                              value: 'high',
+                            ),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 8),
                       SwitchListTile(

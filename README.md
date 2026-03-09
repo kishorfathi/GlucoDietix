@@ -19,6 +19,14 @@ A Flutter app for managing diet with glucose and cholesterol tracking using Supa
 
 ---
 
+## Web Real ML Setup
+
+For real ML food detection on Chrome/web, configure Google Vision API and run with `--dart-define`.
+
+See: [GOOGLE_VISION_SETUP.md](GOOGLE_VISION_SETUP.md)
+
+---
+
 ## 📂 FOLDER STRUCTURE
 
 ```

@@ -18,6 +18,15 @@ dependencies:
   
   # Image Picker
   image_picker: ^1.0.7
+
+  # Live camera preview capture
+  camera: ^0.11.0+2
+
+  # Real on-device image labeling (Android/iOS)
+  google_mlkit_image_labeling: ^0.13.0
+
+  # Optional cloud vision labels (for web or API-backed detection)
+  http: ^1.2.2
   
   # URL Launcher
   url_launcher: ^6.2.5

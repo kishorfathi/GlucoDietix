@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter/foundation.dart';
 import '../models/food.dart';
 import '../models/portion.dart';
 import '../models/user_profile.dart';
@@ -130,7 +131,7 @@ class SupabaseService {
       final response = await query.order('name');
       return (response as List).map((json) => Food.fromJson(json)).toList();
     } catch (e) {
-      print('Error searching foods: $e');
+      debugPrint('Error searching foods: $e');
       return [];
     }
   }
@@ -147,9 +148,9 @@ class SupabaseService {
         if (cat != null) categories.add(cat);
       }
 
-      return ['All', ...categories.toList()];
+      return ['All', ...categories];
     } catch (e) {
-      print('Error getting categories: $e');
+      debugPrint('Error getting categories: $e');
       return ['All'];
     }
   }
@@ -171,9 +172,9 @@ class SupabaseService {
         if (subCat != null) subCategories.add(subCat);
       }
 
-      return ['All', ...subCategories.toList()];
+      return ['All', ...subCategories];
     } catch (e) {
-      print('Error getting sub-categories: $e');
+      debugPrint('Error getting sub-categories: $e');
       return ['All'];
     }
   }
@@ -187,7 +188,7 @@ class SupabaseService {
       if (response == null) return null;
       return Food.fromJson(response);
     } catch (e) {
-      print('Error getting food by ID: $e');
+      debugPrint('Error getting food by ID: $e');
       return null;
     }
   }
@@ -213,7 +214,7 @@ class SupabaseService {
 
       return (response as List).map((json) => Food.fromJson(json)).toList();
     } catch (e) {
-      print('Error getting foods by GI: $e');
+      debugPrint('Error getting foods by GI: $e');
       return [];
     }
   }
@@ -244,7 +245,7 @@ class SupabaseService {
 
       return (response as List).map((json) => Food.fromJson(json)).toList();
     } catch (e) {
-      print('Error getting recommended foods: $e');
+      debugPrint('Error getting recommended foods: $e');
       return [];
     }
   }
@@ -260,7 +261,7 @@ class SupabaseService {
 
       return (response as List).map((json) => Food.fromJson(json)).toList();
     } catch (e) {
-      print('Error getting local foods: $e');
+      debugPrint('Error getting local foods: $e');
       return [];
     }
   }

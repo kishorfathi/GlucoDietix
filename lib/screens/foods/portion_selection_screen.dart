@@ -7,6 +7,7 @@ import '../../services/health_recommendation_service.dart';
 import '../../providers/meal_provider.dart';
 import '../../providers/user_profile_provider.dart';
 import '../../widgets/loading_indicator.dart';
+import '../ar/ar_portion_viewer.dart';
 
 /// Portion Selection Screen
 class PortionSelectionScreen extends StatefulWidget {
@@ -196,33 +197,69 @@ class _PortionSelectionScreenState extends State<PortionSelectionScreen> {
                     Expanded(
                       child: _portions.isEmpty
                           ? const Center(child: Text('No portions available'))
-                          : ListView.builder(
-                              itemCount: _portions.length,
-                              itemBuilder: (context, index) {
-                                final portion = _portions[index];
-                                return RadioListTile<Portion>(
-                                  title: Text(portion.label),
-                                  subtitle: Text(
-                                      '${portion.grams.toStringAsFixed(0)}g'),
-                                  value: portion,
-                                  groupValue: _selectedPortion,
-                                  onChanged: (value) {
-                                    setState(() {
-                                      _selectedPortion = value;
-                                    });
-                                  },
-                                );
+                          : RadioGroup<Portion>(
+                              groupValue: _selectedPortion,
+                              onChanged: (value) {
+                                setState(() {
+                                  _selectedPortion = value;
+                                });
                               },
+                              child: ListView.builder(
+                                itemCount: _portions.length,
+                                itemBuilder: (context, index) {
+                                  final portion = _portions[index];
+                                  return RadioListTile<Portion>(
+                                    title: Text(portion.label),
+                                    subtitle: Text(
+                                        '${portion.grams.toStringAsFixed(0)}g'),
+                                    value: portion,
+                                  );
+                                },
+                              ),
                             ),
                     ),
                     Padding(
                       padding: const EdgeInsets.all(16.0),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: _addToMeal,
-                          child: const Text('Add to Meal'),
-                        ),
+                      child: Column(
+                        children: [
+                          // AR Viewer Button
+                          if (_selectedPortion != null)
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => ARPortionViewer(
+                                        foodName: widget.food.name,
+                                        portionGrams: _selectedPortion!.grams,
+                                      ),
+                                    ),
+                                  );
+                                },
+                                icon: const Icon(Icons.view_in_ar),
+                                label: const Text('View in AR'),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  side: BorderSide(color: Colors.purple.shade400, width: 2),
+                                  foregroundColor: Colors.purple.shade700,
+                                ),
+                              ),
+                            ),
+                          if (_selectedPortion != null) const SizedBox(height: 12),
+                          // Add to Meal Button
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: _addToMeal,
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                              ),
+                              child: const Text('Add to Meal'),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],

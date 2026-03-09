@@ -1,78 +1,245 @@
+import 'dart:convert';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:google_mlkit_image_labeling/google_mlkit_image_labeling.dart';
+import 'package:http/http.dart' as http;
 import '../models/food.dart';
+import '../models/user_profile.dart';
+
+const String _googleVisionApiKey =
+    String.fromEnvironment('GOOGLE_VISION_API_KEY');
 
 /// Food Detection Service
-/// Detects foods from images and estimates portions
-///
-/// NOTE: This is a MOCK implementation for demonstration.
-/// For production, integrate with ML services like:
-/// - Google Cloud Vision API
-/// - AWS Rekognition
-/// - Custom TensorFlow/ML model
-/// - Clarifai Food Model
+/// Uses real ML sources:
+/// - Google Vision API (if GOOGLE_VISION_API_KEY is provided)
+/// - On-device ML Kit labels (Android/iOS)
 class FoodDetectionService {
-  /// Detect foods from image
-  /// Returns list of detected foods with estimated portions
+  final ImageLabeler _labeler = ImageLabeler(
+    options: ImageLabelerOptions(confidenceThreshold: 0.35),
+  );
+
+  /// Detect foods from image and estimate portions.
   Future<List<DetectedFood>> detectFoodsFromImage(
+    List<Food> availableFoods, {
+    required Uint8List imageBytes,
+    required String? imagePath,
+  }) async {
+    if (availableFoods.isEmpty) return [];
+
+    if (_googleVisionApiKey.isNotEmpty) {
+      final cloudLabels = await _detectLabelsWithGoogleVision(imageBytes);
+      if (cloudLabels.isNotEmpty) {
+        return _matchSignalsToFoods(
+          cloudLabels,
+          availableFoods,
+          detectionMethod: 'Google Vision API',
+        );
+      }
+    }
+
+    if (!kIsWeb && imagePath != null && imagePath.isNotEmpty) {
+      try {
+        final input = InputImage.fromFilePath(imagePath);
+        final labels = await _labeler.processImage(input);
+        final signals = labels
+            .map(
+              (label) => _LabelSignal(
+                label: label.label,
+                confidence: label.confidence,
+              ),
+            )
+            .toList();
+        if (signals.isNotEmpty) {
+          return _matchSignalsToFoods(
+            signals,
+            availableFoods,
+            detectionMethod: 'On-device ML (ML Kit)',
+          );
+        }
+      } catch (_) {}
+    }
+
+    return [];
+  }
+
+  Future<void> dispose() async {
+    await _labeler.close();
+  }
+
+  Future<List<_LabelSignal>> _detectLabelsWithGoogleVision(
     Uint8List imageBytes,
-    List<Food> availableFoods,
   ) async {
-    // Simulate ML processing delay
-    await Future.delayed(const Duration(seconds: 2));
+    if (_googleVisionApiKey.isEmpty || imageBytes.isEmpty) return [];
 
-    // MOCK IMPLEMENTATION
-    // In production, send image to ML service and get results
-    // Example with Google Vision:
-    // final vision = VisionApi(credentials);
-    // final response = await vision.images.annotate(imageBytes);
-    // final labels = response.labelAnnotations;
+    try {
+      final uri = Uri.parse(
+        'https://vision.googleapis.com/v1/images:annotate?key=$_googleVisionApiKey',
+      );
 
-    // For demo, detect common Sri Lankan meal items
-    final detectedFoods = <DetectedFood>[];
+      final payload = {
+        'requests': [
+          {
+            'image': {'content': base64Encode(imageBytes)},
+            'features': [
+              {'type': 'LABEL_DETECTION', 'maxResults': 15},
+            ],
+          },
+        ],
+      };
 
-    // Simulate detecting rice (very common in Sri Lankan meals)
-    final rice = availableFoods.firstWhere(
-      (f) => f.name.toLowerCase().contains('white rice'),
-      orElse: () => availableFoods.first,
-    );
-    detectedFoods.add(DetectedFood(
-      food: rice,
-      estimatedGrams: 250, // Typical plate portion
-      confidence: 0.95,
-      detectionMethod: 'Visual Recognition',
-    ));
+      final response = await http
+          .post(
+            uri,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode(payload),
+          )
+          .timeout(const Duration(seconds: 12));
 
-    // Try to detect curry
-    final curry = availableFoods
-        .where(
-          (f) => f.category == 'Curries',
-        )
-        .take(2);
+      if (response.statusCode != 200) return [];
 
-    for (var c in curry) {
-      detectedFoods.add(DetectedFood(
-        food: c,
-        estimatedGrams: 120, // Typical curry portion
-        confidence: 0.85,
-        detectionMethod: 'Visual Recognition',
-      ));
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      final responses = body['responses'] as List<dynamic>?;
+      if (responses == null || responses.isEmpty) return [];
+
+      final firstResponse = responses.first as Map<String, dynamic>;
+      final annotations = firstResponse['labelAnnotations'] as List<dynamic>?;
+      if (annotations == null) return [];
+
+      return annotations
+          .map((annotation) {
+            final item = annotation as Map<String, dynamic>;
+            final label = (item['description'] as String?)?.trim();
+            if (label == null || label.isEmpty) return null;
+            final score = (item['score'] as num?)?.toDouble() ?? 0.0;
+            return _LabelSignal(label: label, confidence: score);
+          })
+          .whereType<_LabelSignal>()
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  List<DetectedFood> _matchSignalsToFoods(
+    List<_LabelSignal> labels,
+    List<Food> foods, {
+    required String detectionMethod,
+  }) {
+    final candidates = <String, _CandidateScore>{};
+
+    for (final label in labels) {
+      final labelText = _normalize(label.label);
+      if (labelText.length < 3) continue;
+
+      for (final food in foods) {
+        final score = _scoreFoodAgainstLabel(food, labelText, label.confidence);
+        if (score <= 0) continue;
+
+        final existing = candidates[food.id];
+        if (existing == null) {
+          candidates[food.id] = _CandidateScore(
+            food: food,
+            score: score,
+            bestConfidence: label.confidence,
+            bestLabel: label.label,
+          );
+        } else {
+          candidates[food.id] = _CandidateScore(
+            food: existing.food,
+            score: existing.score + score,
+            bestConfidence: label.confidence > existing.bestConfidence
+                ? label.confidence
+                : existing.bestConfidence,
+            bestLabel: label.confidence > existing.bestConfidence
+                ? label.label
+                : existing.bestLabel,
+          );
+        }
+      }
     }
 
-    // Try to detect sambol
-    final sambol = availableFoods.firstWhere(
-      (f) => f.name.toLowerCase().contains('sambol'),
-      orElse: () => availableFoods.first,
-    );
-    if (sambol.category == 'Condiments') {
-      detectedFoods.add(DetectedFood(
-        food: sambol,
-        estimatedGrams: 30, // Small portion
-        confidence: 0.75,
-        detectionMethod: 'Visual Recognition',
-      ));
+    final ranked = candidates.values.toList()
+      ..sort((a, b) => b.score.compareTo(a.score));
+
+    return ranked.take(6).map((candidate) {
+      return DetectedFood(
+        food: candidate.food,
+        estimatedGrams: _estimatePortion(candidate.food, candidate.bestConfidence),
+        confidence: candidate.bestConfidence.clamp(0.35, 0.99).toDouble(),
+        detectionMethod: detectionMethod,
+        sourceLabel: candidate.bestLabel,
+      );
+    }).toList();
+  }
+
+  double _scoreFoodAgainstLabel(Food food, String label, double confidence) {
+    final foodText = _foodSearchText(food);
+    double score = 0;
+
+    if (foodText.contains(label)) {
+      score += confidence * 1.5;
     }
 
-    return detectedFoods;
+    final words = label.split(' ').where((w) => w.length >= 3);
+    final matchedWords = words.where(foodText.contains).length;
+    if (matchedWords > 0) {
+      score += confidence * (0.6 + (matchedWords * 0.25));
+    }
+
+    for (final entry in _labelIntentToFoodKeywords.entries) {
+      if (!label.contains(entry.key)) continue;
+      final matchesKeyword = entry.value.any(foodText.contains);
+      if (matchesKeyword) {
+        score += confidence * 1.0;
+      }
+    }
+
+    return score;
+  }
+
+  String _foodSearchText(Food food) {
+    return _normalize([
+      food.name,
+      food.nameSinhala ?? '',
+      food.nameTamil ?? '',
+      food.category,
+      food.subCategory ?? '',
+    ].join(' '));
+  }
+
+  String _normalize(String value) {
+    return value
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9\s]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+  }
+
+  double _estimatePortion(Food food, double confidence) {
+    double grams = _estimateBasePortionByCategory(food);
+
+    if (confidence < 0.5) {
+      grams *= 0.85;
+    } else if (confidence > 0.8) {
+      grams *= 1.1;
+    }
+
+    return grams.clamp(20.0, 450.0).toDouble();
+  }
+
+  double _estimateBasePortionByCategory(Food food) {
+    if (food.servingSizeG > 0) return food.servingSizeG;
+
+    final category = food.category.toLowerCase();
+    if (category.contains('staple')) return 180;
+    if (category.contains('curr')) return 120;
+    if (category.contains('condiment') || category.contains('sambol')) {
+      return 35;
+    }
+    if (category.contains('fruit')) return 130;
+    if (category.contains('dessert')) return 90;
+    if (category.contains('beverage')) return 220;
+    return 100;
   }
 
   /// Detect from search query (manual selection helper)
@@ -80,12 +247,9 @@ class FoodDetectionService {
     String query,
     List<Food> availableFoods,
   ) async {
-    await Future.delayed(const Duration(milliseconds: 500));
-
     final detected = <DetectedFood>[];
     final queryLower = query.toLowerCase();
 
-    // Find matching foods
     final matches = availableFoods
         .where((f) =>
             f.name.toLowerCase().contains(queryLower) ||
@@ -93,77 +257,138 @@ class FoodDetectionService {
             (f.nameTamil?.toLowerCase().contains(queryLower) ?? false))
         .take(5);
 
-    for (var food in matches) {
-      // Estimate portion based on food type
-      double grams;
-      if (food.category == 'Staples') {
-        grams = 200;
-      } else if (food.category == 'Curries') {
-        grams = 120;
-      } else if (food.category == 'Condiments') {
-        grams = 30;
-      } else if (food.category == 'Fruits') {
-        grams = 150;
-      } else {
-        grams = 100;
-      }
-
-      detected.add(DetectedFood(
-        food: food,
-        estimatedGrams: grams,
-        confidence: 0.9,
-        detectionMethod: 'Text Search',
-      ));
+    for (final food in matches) {
+      detected.add(
+        DetectedFood(
+          food: food,
+          estimatedGrams: _estimateBasePortionByCategory(food),
+          confidence: 0.9,
+          detectionMethod: 'Text search',
+          sourceLabel: query,
+        ),
+      );
     }
 
     return detected;
   }
 
-  /// Get smart portion recommendation based on health profile
+  /// Personalized portion recommendation based on health profile.
   double getSmartPortion(
     Food food,
     bool hasDiabetes,
     String glucoseRange,
-    bool cholesterolConcern,
-  ) {
-    double baseGrams = food.servingSizeG;
+    bool cholesterolConcern, {
+    double? weightKg,
+    double? heightCm,
+    double? targetGlucoseMax,
+  }) {
+    double grams = _estimateBasePortionByCategory(food);
+    final gi = food.glycemicIndex ?? 0;
 
-    // Adjust for diabetes
-    if (hasDiabetes || glucoseRange == 'high') {
-      // High GI foods - reduce significantly
-      if ((food.glycemicIndex ?? 0) > 70) {
-        baseGrams *= 0.6; // 40% reduction
+    if (hasDiabetes || glucoseRange.toLowerCase() == 'high') {
+      if (gi >= 70) {
+        grams *= 0.6;
+      } else if (gi >= 55) {
+        grams *= 0.78;
       }
-      // High carb foods - reduce moderately
-      else if (food.carbs100g > 30) {
-        baseGrams *= 0.75; // 25% reduction
+
+      if (food.carbs100g >= 45) {
+        grams *= 0.7;
+      } else if (food.carbs100g >= 30) {
+        grams *= 0.85;
+      }
+
+      if ((targetGlucoseMax ?? 140) <= 110 && food.carbs100g > 20) {
+        grams *= 0.9;
       }
     }
 
-    // Adjust for cholesterol
     if (cholesterolConcern) {
-      // High fat foods - reduce
-      if (food.fat100g > 15) {
-        baseGrams *= 0.7; // 30% reduction
-      }
+      if (food.fat100g >= 15) grams *= 0.75;
+      if ((food.cholesterolMg ?? 0) >= 80) grams *= 0.85;
     }
 
-    return baseGrams;
+    if (weightKg != null && heightCm != null && heightCm > 0) {
+      final heightM = heightCm / 100;
+      final bmi = weightKg / (heightM * heightM);
+      if (bmi >= 27) grams *= 0.9;
+      if (bmi <= 20) grams *= 1.05;
+    }
+
+    final rounded = (grams / 5).round() * 5.0;
+    return rounded.clamp(20.0, 400.0).toDouble();
+  }
+
+  double getSmartPortionFromProfile(Food food, UserProfile? profile) {
+    if (profile == null) {
+      return _estimateBasePortionByCategory(food);
+    }
+
+    return getSmartPortion(
+      food,
+      profile.diabetes,
+      profile.glucoseRange,
+      profile.cholesterolConcern,
+      weightKg: profile.weightKg,
+      heightCm: profile.heightCm,
+      targetGlucoseMax: profile.targetGlucoseMax,
+    );
   }
 }
 
-/// Detected Food with portion estimation
+class _LabelSignal {
+  final String label;
+  final double confidence;
+
+  _LabelSignal({
+    required this.label,
+    required this.confidence,
+  });
+}
+
+class _CandidateScore {
+  final Food food;
+  final double score;
+  final double bestConfidence;
+  final String bestLabel;
+
+  _CandidateScore({
+    required this.food,
+    required this.score,
+    required this.bestConfidence,
+    required this.bestLabel,
+  });
+}
+
+const Map<String, List<String>> _labelIntentToFoodKeywords = {
+  'rice': ['rice', 'bhat', 'bath', 'staples'],
+  'curry': ['curry', 'curries', 'gravy'],
+  'fish': ['fish', 'seafood'],
+  'chicken': ['chicken', 'poultry'],
+  'egg': ['egg'],
+  'bread': ['bread', 'roti', 'hopper', 'pittu', 'string hopper'],
+  'vegetable': ['vegetable', 'mallum', 'greens', 'salad'],
+  'fruit': ['fruit', 'mango', 'banana', 'papaya'],
+  'bean': ['dhal', 'lentil', 'bean'],
+  'dessert': ['dessert', 'sweet', 'wattalappan', 'kavum'],
+  'noodle': ['noodle', 'pasta'],
+  'soup': ['soup'],
+};
+
+/// Detected food with portion estimation.
 class DetectedFood {
   final Food food;
   final double estimatedGrams;
-  final double confidence; // 0.0 to 1.0
+  final double confidence;
   final String detectionMethod;
+  final String sourceLabel;
 
   DetectedFood({
     required this.food,
     required this.estimatedGrams,
     required this.confidence,
     required this.detectionMethod,
+    required this.sourceLabel,
   });
 
   String get confidencePercent => '${(confidence * 100).toInt()}%';

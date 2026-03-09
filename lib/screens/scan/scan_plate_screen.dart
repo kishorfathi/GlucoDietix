@@ -1,18 +1,17 @@
-import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import '../../services/food_detection_service.dart';
-import '../../services/supabase_service.dart';
 import '../../providers/meal_provider.dart';
 import '../../providers/user_profile_provider.dart';
+import '../../services/food_detection_service.dart';
+import '../../services/supabase_service.dart';
 import '../../widgets/loading_indicator.dart';
-import '../meal/results_screen.dart';
 import '../foods/food_search_screen.dart';
+import '../meal/results_screen.dart';
+import 'camera_capture_screen.dart';
 
-/// Scan Plate Screen
 class ScanPlateScreen extends StatefulWidget {
   const ScanPlateScreen({super.key});
 
@@ -21,384 +20,332 @@ class ScanPlateScreen extends StatefulWidget {
 }
 
 class _ScanPlateScreenState extends State<ScanPlateScreen> {
-  final ImagePicker _picker = ImagePicker();
   final FoodDetectionService _detectionService = FoodDetectionService();
   final SupabaseService _supabaseService = SupabaseService();
+  final ImagePicker _picker = ImagePicker();
 
-  XFile? _imageFile;
-  Uint8List? _webImage;
-  List<DetectedFood>? _detectedFoods;
+  Uint8List? _imageBytes;
+  List<DetectedFood> _detectedFoods = [];
+  final Set<String> _selectedFoodIds = {};
+  final Map<String, double> _selectedPortions = {};
   bool _isDetecting = false;
+  String? _mlNotice;
 
-  Future<void> _takePicture() async {
-    try {
-      // Show instruction for web users
-      if (kIsWeb && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-                'Please allow camera access when prompted by your browser'),
-            duration: Duration(seconds: 2),
-            backgroundColor: Colors.blue,
-          ),
-        );
-      }
-
-      final XFile? photo = await _picker.pickImage(
-        source: ImageSource.camera,
-        maxWidth: 1920,
-        maxHeight: 1080,
-        imageQuality: 85,
-      );
-
-      if (photo != null) {
-        if (kIsWeb) {
-          final bytes = await photo.readAsBytes();
-          setState(() {
-            _imageFile = photo;
-            _webImage = bytes;
-          });
-          await _detectFoods(bytes);
-        } else {
-          setState(() {
-            _imageFile = photo;
-          });
-          final bytes = await photo.readAsBytes();
-          await _detectFoods(bytes);
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-                'Error taking picture: ${e.toString().contains('camera') ? 'Camera access denied. Please allow camera access in browser settings.' : e}'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
-          ),
-        );
-      }
-    }
+  @override
+  void dispose() {
+    _detectionService.dispose();
+    super.dispose();
   }
 
-  Future<void> _pickFromGallery() async {
+  Future<void> _openCameraAndDetect() async {
+    final captured = await Navigator.push<CapturedPhoto>(
+      context,
+      MaterialPageRoute(builder: (_) => const CameraCaptureScreen()),
+    );
+
+    if (!mounted || captured == null) return;
+
+    setState(() {
+      _imageBytes = captured.bytes;
+      _detectedFoods = [];
+      _selectedFoodIds.clear();
+      _selectedPortions.clear();
+      _mlNotice = null;
+    });
+
+    await _detectFoods(captured.file.path);
+  }
+
+  Future<void> _uploadPlateAndDetect() async {
     try {
-      final XFile? photo = await _picker.pickImage(
+      final photo = await _picker.pickImage(
         source: ImageSource.gallery,
         maxWidth: 1920,
         maxHeight: 1080,
-        imageQuality: 85,
+        imageQuality: 90,
       );
 
-      if (photo != null) {
-        if (kIsWeb) {
-          final bytes = await photo.readAsBytes();
-          setState(() {
-            _imageFile = photo;
-            _webImage = bytes;
-          });
-          await _detectFoods(bytes);
-        } else {
-          setState(() {
-            _imageFile = photo;
-          });
-          final bytes = await photo.readAsBytes();
-          await _detectFoods(bytes);
-        }
-      }
+      if (!mounted || photo == null) return;
+
+      final bytes = await photo.readAsBytes();
+      if (!mounted) return;
+
+      setState(() {
+        _imageBytes = bytes;
+        _detectedFoods = [];
+        _selectedFoodIds.clear();
+        _selectedPortions.clear();
+        _mlNotice = null;
+      });
+
+      await _detectFoods(photo.path);
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error picking image: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to upload image: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
-  Future<void> _detectFoods(Uint8List imageBytes) async {
+  Future<void> _detectFoods(String? imagePath) async {
+    final profile =
+        Provider.of<UserProfileProvider>(context, listen: false).userProfile;
+
     setState(() {
       _isDetecting = true;
-      _detectedFoods = null;
+      _mlNotice = null;
     });
 
     try {
-      // Show progress message
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('🔍 ML is analyzing your meal...'),
-            duration: Duration(seconds: 2),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-
-      // Load available foods from database
       final foods = await _supabaseService.searchFoods();
-
-      // Detect foods from image
       final detected = await _detectionService.detectFoodsFromImage(
-        imageBytes,
         foods,
+        imageBytes: _imageBytes ?? Uint8List(0),
+        imagePath: imagePath,
       );
 
-      if (mounted) {
-        setState(() {
-          _detectedFoods = detected;
-          _isDetecting = false;
-        });
+      final portions = <String, double>{};
+      final selected = <String>{};
+      for (final item in detected) {
+        selected.add(item.food.id);
+        portions[item.food.id] =
+            _detectionService.getSmartPortionFromProfile(item.food, profile);
+      }
 
-        if (detected.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                  '⚠️ No foods detected. Try another image or use manual selection.'),
-              backgroundColor: Colors.orange,
-              duration: Duration(seconds: 3),
-            ),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('✅ Detected ${detected.length} food item(s)!'),
-              backgroundColor: Colors.green,
-              duration: const Duration(seconds: 2),
-            ),
-          );
+      if (!mounted) return;
+      setState(() {
+        _detectedFoods = detected;
+        _selectedFoodIds
+          ..clear()
+          ..addAll(selected);
+        _selectedPortions
+          ..clear()
+          ..addAll(portions);
+        _isDetecting = false;
+        if (kIsWeb && detected.isEmpty) {
+          _mlNotice =
+              'No web ML labels received. Set GOOGLE_VISION_API_KEY with --dart-define, or use manual multi-select.';
         }
-      }
+      });
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isDetecting = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('❌ Detection error: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
-          ),
-        );
-      }
+      if (!mounted) return;
+      setState(() {
+        _isDetecting = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Detection failed: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
-  Future<void> _addToMealAndAnalyze() async {
-    if (_detectedFoods == null || _detectedFoods!.isEmpty) return;
-
-    // Show loading message
-    if (mounted) {
+  Future<void> _addSelectedToMealAndAnalyze() async {
+    if (_selectedFoodIds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('📊 Analyzing your meal for health recommendations...'),
-          duration: Duration(seconds: 2),
-          backgroundColor: Colors.blue,
+          content: Text('Select at least one food item.'),
+          backgroundColor: Colors.orange,
         ),
       );
+      return;
     }
 
     final mealProvider = Provider.of<MealProvider>(context, listen: false);
-    final profileProvider =
-        Provider.of<UserProfileProvider>(context, listen: false);
-
-    // Get smart portions based on health profile
-    final profile = profileProvider.userProfile;
-
-    // Clear current meal
     mealProvider.clearMeal();
 
-    // Add detected foods with smart portions
-    for (var detected in _detectedFoods!) {
-      double grams = detected.estimatedGrams;
-
-      // Adjust portion based on health profile
-      if (profile != null) {
-        grams = _detectionService.getSmartPortion(
-          detected.food,
-          profile.diabetes,
-          profile.glucoseRange,
-          profile.cholesterolConcern,
-        );
-      }
-
+    for (final detected in _detectedFoods) {
+      if (!_selectedFoodIds.contains(detected.food.id)) continue;
       mealProvider.addFood(detected.food);
-      mealProvider.updateGrams(detected.food.id, grams);
-    }
-
-    // Navigate to results screen
-    if (mounted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => const ResultsScreen(),
-        ),
+      mealProvider.updateGrams(
+        detected.food.id,
+        (_selectedPortions[detected.food.id] ?? detected.estimatedGrams)
+            .clamp(20.0, 400.0)
+            .toDouble(),
       );
     }
+
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const ResultsScreen()),
+    );
   }
 
-  void _selectFoods() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const FoodSearchScreen(),
-      ),
-    );
+  void _toggleDetectedItem(String foodId, bool selected) {
+    setState(() {
+      if (selected) {
+        _selectedFoodIds.add(foodId);
+      } else {
+        _selectedFoodIds.remove(foodId);
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Scan Plate'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-              'Capture your meal',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            if (_imageFile == null) ...[
-              const Expanded(
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.camera_alt,
-                        size: 100,
-                        color: Colors.grey,
-                      ),
-                      SizedBox(height: 16),
-                      Text(
-                        'No image captured yet',
-                        style: TextStyle(fontSize: 16, color: Colors.grey),
-                      ),
+      appBar: AppBar(title: const Text('Scan Plate')),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      scheme.primary.withValues(alpha: 0.12),
+                      scheme.tertiary.withValues(alpha: 0.1),
                     ],
                   ),
+                  border: Border.all(color: scheme.primary.withValues(alpha: 0.3)),
+                ),
+                child: const Text(
+                  'Take a live photo, review predicted foods, and adjust portions before analysis.',
+                  textAlign: TextAlign.center,
                 ),
               ),
-              ElevatedButton.icon(
-                onPressed: _takePicture,
-                icon: const Icon(Icons.camera, size: 24),
-                label: const Text(
-                  'Take Picture',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 18),
-                  backgroundColor: Colors.yellow[700],
-                  foregroundColor: Colors.black87,
-                  elevation: 4,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
-                onPressed: _pickFromGallery,
-                icon: const Icon(Icons.photo_library, size: 24),
-                label: const Text(
-                  'Pick from Gallery',
-                  style: TextStyle(fontSize: 16),
-                ),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  side: const BorderSide(color: Colors.green, width: 2),
-                  foregroundColor: Colors.green,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-            ] else ...[
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: kIsWeb
-                            ? Image.memory(
-                                _webImage!,
-                                fit: BoxFit.contain,
-                                height: 250,
-                              )
-                            : Image.file(
-                                File(_imageFile!.path),
-                                fit: BoxFit.contain,
-                                height: 250,
-                              ),
+              const SizedBox(height: 14),
+              if (_imageBytes == null) ...[
+                Expanded(
+                  child: Center(
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: scheme.surface,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: scheme.outlineVariant),
                       ),
-                      const SizedBox(height: 16),
-                      if (_isDetecting) ...[
-                        const LoadingIndicator(),
-                        const SizedBox(height: 8),
-                        const Text(
-                          '🔍 ML is detecting foods...',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey,
-                            fontWeight: FontWeight.w500,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.camera_alt_rounded,
+                              size: 80, color: scheme.primary),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Ready to capture your meal',
+                            style: theme.textTheme.titleMedium,
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                FilledButton.icon(
+                  onPressed: _openCameraAndDetect,
+                  icon: const Icon(Icons.camera),
+                  label: const Text('Open Camera'),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: _uploadPlateAndDetect,
+                  icon: const Icon(Icons.upload_file),
+                  label: const Text('Upload Plate Photo'),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const FoodSearchScreen(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.restaurant_menu),
+                  label: const Text('Manual Multi-Select'),
+                ),
+              ] else ...[
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(14),
+                          child: Image.memory(
+                            _imageBytes!,
+                            height: 240,
+                            fit: BoxFit.cover,
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          'This may take 2-3 seconds',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 14, color: Colors.grey),
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-                      if (!_isDetecting &&
-                          _detectedFoods != null &&
-                          _detectedFoods!.isNotEmpty) ...[
-                        Card(
-                          color: Colors.green.shade50,
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Icon(Icons.check_circle,
-                                        color: Colors.green.shade700),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'Foods Detected',
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.green.shade700,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 12),
-                                ..._detectedFoods!.map((detected) {
-                                  final confidencePercent =
-                                      (detected.confidence * 100).toInt();
-                                  final confidenceColor =
-                                      detected.confidence >= 0.8
-                                          ? Colors.green
-                                          : detected.confidence >= 0.6
-                                              ? Colors.orange
-                                              : Colors.grey;
+                        const SizedBox(height: 14),
+                        if (_isDetecting) ...[
+                          const LoadingIndicator(),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Analyzing with ML...',
+                            textAlign: TextAlign.center,
+                          ),
+                        ] else if (_detectedFoods.isEmpty) ...[
+                          Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(14),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'No confident food matches found.',
+                                    style: theme.textTheme.titleSmall,
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    _mlNotice ??
+                                        'Try a clearer angle or add foods manually.',
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ] else ...[
+                          Text(
+                            'Detected foods (${_detectedFoods.length})',
+                            style: theme.textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                          const SizedBox(height: 8),
+                          ..._detectedFoods.map((detected) {
+                            final isSelected =
+                                _selectedFoodIds.contains(detected.food.id);
+                            final currentPortion = _selectedPortions[
+                                    detected.food.id] ??
+                                detected.estimatedGrams;
+                            final confidenceColor = detected.confidence >= 0.75
+                                ? Colors.green
+                                : detected.confidence >= 0.55
+                                    ? Colors.orange
+                                    : Colors.red;
 
-                                  return Padding(
-                                    padding: const EdgeInsets.only(bottom: 8),
-                                    child: Row(
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 10),
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Column(
+                                  children: [
+                                    Row(
                                       children: [
+                                        Checkbox(
+                                          value: isSelected,
+                                          onChanged: (value) => _toggleDetectedItem(
+                                            detected.food.id,
+                                            value ?? false,
+                                          ),
+                                        ),
                                         Expanded(
                                           child: Column(
                                             crossAxisAlignment:
@@ -407,139 +354,117 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
                                               Text(
                                                 detected.food.name,
                                                 style: const TextStyle(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.w500,
+                                                  fontWeight: FontWeight.w700,
                                                 ),
                                               ),
                                               Text(
-                                                '${detected.estimatedGrams.toInt()}g',
-                                                style: TextStyle(
-                                                  fontSize: 14,
-                                                  color: Colors.grey.shade600,
-                                                ),
+                                                'Source label: ${detected.sourceLabel}',
+                                                style: theme.textTheme.bodySmall,
                                               ),
                                             ],
                                           ),
                                         ),
                                         Container(
                                           padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 4,
-                                          ),
+                                              horizontal: 8, vertical: 4),
                                           decoration: BoxDecoration(
                                             color: confidenceColor
-                                                .withOpacity(0.1),
+                                                .withValues(alpha: 0.1),
                                             borderRadius:
-                                                BorderRadius.circular(4),
+                                                BorderRadius.circular(20),
                                             border: Border.all(
                                               color: confidenceColor,
-                                              width: 1,
                                             ),
                                           ),
                                           child: Text(
-                                            '$confidencePercent%',
+                                            detected.confidencePercent,
                                             style: TextStyle(
                                               color: confidenceColor,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700,
                                             ),
                                           ),
                                         ),
                                       ],
                                     ),
-                                  );
-                                }).toList(),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-                      if (!_isDetecting &&
-                          _detectedFoods != null &&
-                          _detectedFoods!.isEmpty) ...[
-                        Card(
-                          color: Colors.orange.shade50,
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Row(
-                              children: [
-                                Icon(Icons.info_outline,
-                                    color: Colors.orange.shade700),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    'No foods detected. Try manual selection.',
-                                    style: TextStyle(
-                                        color: Colors.orange.shade700),
-                                  ),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Slider(
+                                            value: currentPortion
+                                                .clamp(20.0, 400.0)
+                                                .toDouble(),
+                                            min: 20,
+                                            max: 400,
+                                            divisions: 76,
+                                            label:
+                                                '${currentPortion.toStringAsFixed(0)} g',
+                                            onChanged: isSelected
+                                                ? (value) {
+                                                    setState(() {
+                                                      _selectedPortions[
+                                                          detected.food.id] = value;
+                                                    });
+                                                  }
+                                                : null,
+                                          ),
+                                        ),
+                                        SizedBox(
+                                          width: 78,
+                                          child: Text(
+                                            '${currentPortion.toStringAsFixed(0)} g',
+                                            textAlign: TextAlign.right,
+                                            style: theme.textTheme.titleSmall,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
+                              ),
+                            );
+                          }),
+                        ],
                       ],
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              if (_detectedFoods != null && _detectedFoods!.isNotEmpty) ...[
-                ElevatedButton.icon(
-                  onPressed: _addToMealAndAnalyze,
-                  icon: const Icon(Icons.analytics, size: 24),
-                  label: const Text(
-                    'Add All to Meal & Analyze',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 18),
-                    backgroundColor: Colors.green[600],
-                    foregroundColor: Colors.white,
-                    elevation: 4,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                 ),
+                const SizedBox(height: 10),
+                if (_detectedFoods.isNotEmpty)
+                  FilledButton.icon(
+                    onPressed: _addSelectedToMealAndAnalyze,
+                    icon: const Icon(Icons.analytics),
+                    label: Text(
+                      'Add Selected (${_selectedFoodIds.length}) and Analyze',
+                    ),
+                  ),
                 const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const FoodSearchScreen(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.restaurant),
+                  label: const Text('Manual Multi-Select'),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: _openCameraAndDetect,
+                  icon: const Icon(Icons.camera_alt),
+                  label: const Text('Retake Photo'),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: _uploadPlateAndDetect,
+                  icon: const Icon(Icons.upload_file),
+                  label: const Text('Upload Another Photo'),
+                ),
               ],
-              OutlinedButton.icon(
-                onPressed: _selectFoods,
-                icon: const Icon(Icons.restaurant),
-                label: const Text('Manual Food Selection'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  side: const BorderSide(color: Colors.blue, width: 2),
-                  foregroundColor: Colors.blue,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
-                onPressed: () {
-                  setState(() {
-                    _imageFile = null;
-                    _webImage = null;
-                    _detectedFoods = null;
-                  });
-                },
-                icon: const Icon(Icons.refresh),
-                label: const Text('Retake Picture'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  side: const BorderSide(color: Colors.grey, width: 2),
-                  foregroundColor: Colors.grey[700],
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
             ],
-          ],
+          ),
         ),
       ),
     );

@@ -245,13 +245,17 @@ class HealthRecommendationService {
   int _calculateDiabetesRisk(double totalCarbs, double avgGI) {
     int risk = 0;
 
-    if (totalCarbs > 60)
+    if (totalCarbs > 60) {
       risk += 30;
-    else if (totalCarbs > 45) risk += 15;
+    } else if (totalCarbs > 45) {
+      risk += 15;
+    }
 
-    if (avgGI > 70)
+    if (avgGI > 70) {
       risk += 25;
-    else if (avgGI > 60) risk += 10;
+    } else if (avgGI > 60) {
+      risk += 10;
+    }
 
     return risk;
   }
@@ -259,17 +263,21 @@ class HealthRecommendationService {
   int _calculateCholesterolRisk(double totalFat, List<MealItem> items) {
     int risk = 0;
 
-    if (totalFat > 30)
+    if (totalFat > 30) {
       risk += 20;
-    else if (totalFat > 20) risk += 10;
+    } else if (totalFat > 20) {
+      risk += 10;
+    }
 
     final totalChol = items.fold(0.0, (sum, item) {
       return sum + ((item.food.cholesterolMg ?? 0) * item.grams / 100);
     });
 
-    if (totalChol > 200)
+    if (totalChol > 200) {
       risk += 20;
-    else if (totalChol > 100) risk += 10;
+    } else if (totalChol > 100) {
+      risk += 10;
+    }
 
     return risk;
   }

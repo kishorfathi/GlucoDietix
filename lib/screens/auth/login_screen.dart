@@ -46,13 +46,11 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
+    final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text('Login to GlucoDietix'),
-        backgroundColor: Colors.green,
-        foregroundColor: Colors.white,
       ),
       body: authProvider.isLoading
           ? const LoadingIndicator()
@@ -69,7 +67,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       Icon(
                         Icons.restaurant_menu,
                         size: 80,
-                        color: Colors.green[700],
+                        color: scheme.primary,
                       ),
                       const SizedBox(height: 16),
                       Text(
@@ -77,7 +75,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         textAlign: TextAlign.center,
                         style:
                             Theme.of(context).textTheme.headlineLarge?.copyWith(
-                                  color: Colors.green[700],
+                                  color: scheme.tertiary,
                                   fontWeight: FontWeight.bold,
                                 ),
                       ),
@@ -131,13 +129,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ElevatedButton(
                         onPressed: _signIn,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
+                            padding: const EdgeInsets.symmetric(vertical: 16)),
                         child: const Text(
                           'Login',
                           style: TextStyle(
@@ -154,7 +146,10 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           );
                         },
-                        child: const Text('Don\'t have an account? Register'),
+                        child: Text(
+                          'Don\'t have an account? Register',
+                          style: TextStyle(color: scheme.primary),
+                        ),
                       ),
                     ],
                   ),
