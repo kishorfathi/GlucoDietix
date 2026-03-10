@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../providers/meal_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_profile_provider.dart';
 import '../../models/meal_item.dart';
 import '../../services/health_recommendation_service.dart';
+import '../ar/ar_portion_viewer.dart';
 
 /// Results Screen
 class ResultsScreen extends StatefulWidget {
@@ -33,31 +33,16 @@ class _ResultsScreenState extends State<ResultsScreen> {
     }
   }
 
-  String _slugify(String text) {
-    return text
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
-        .replaceAll(RegExp(r'^-+|-+$'), '');
-  }
-
-  Future<void> _openAR(String foodName, double grams) async {
-    final slug = _slugify(foodName);
-    final url =
-        'https://YOUR_HOST/ar.html?food=$slug&grams=${grams.toStringAsFixed(0)}';
-
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Could not open AR view'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
+  void _openAR(String foodName, double grams) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ARPortionViewer(
+          foodName: foodName,
+          portionGrams: grams,
+        ),
+      ),
+    );
   }
 
   @override
@@ -346,7 +331,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                           recommendedGrams,
                         ),
                         icon: const Icon(Icons.view_in_ar),
-                        label: const Text('View in AR'),
+                        label: const Text('View Recommended Portion in AR'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.deepPurple,
                           foregroundColor: Colors.white,

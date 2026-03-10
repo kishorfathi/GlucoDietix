@@ -101,8 +101,11 @@ class MealBuilderScreen extends StatelessWidget {
                             ),
                           );
                         },
-                        icon: const Icon(Icons.add),
-                        label: const Text('Add Food'),
+                        icon: const Icon(Icons.restaurant_menu),
+                        label: const Text('Track Meal'),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -118,6 +121,9 @@ class MealBuilderScreen extends StatelessWidget {
                         },
                         icon: const Icon(Icons.camera_alt),
                         label: const Text('Scan Plate'),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
                       ),
                     ),
                   ],
@@ -128,11 +134,31 @@ class MealBuilderScreen extends StatelessWidget {
           const Divider(),
           Expanded(
             child: mealProvider.isEmpty
-                ? const Center(
-                    child: Text(
-                      'No foods added yet.\nTap "Add Food" or "Scan Plate" to get started.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 16, color: Colors.grey),
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.restaurant_menu,
+                          size: 80,
+                          color: Colors.grey.shade300,
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'No foods added yet',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Tap "Track Meal" or "Scan Plate" to get started',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 14, color: Colors.grey),
+                        ),
+                      ],
                     ),
                   )
                 : ListView.builder(

@@ -197,69 +197,259 @@ class _PortionSelectionScreenState extends State<PortionSelectionScreen> {
                     Expanded(
                       child: _portions.isEmpty
                           ? const Center(child: Text('No portions available'))
-                          : RadioGroup<Portion>(
-                              groupValue: _selectedPortion,
-                              onChanged: (value) {
-                                setState(() {
-                                  _selectedPortion = value;
-                                });
+                          : ListView.builder(
+                              itemCount: _portions.length,
+                              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                              itemBuilder: (context, index) {
+                                final portion = _portions[index];
+                                final isSelected = _selectedPortion == portion;
+
+                                // Calculate nutritional values for this portion
+                                final portionCarbs = (widget.food.carbs100g *
+                                    portion.grams /
+                                    100);
+                                final portionCalories =
+                                    (widget.food.energyKcal *
+                                        portion.grams /
+                                        100);
+
+                                return Card(
+                                  margin: const EdgeInsets.only(bottom: 12),
+                                  elevation: isSelected ? 4 : 1,
+                                  color: isSelected
+                                      ? Colors.teal.shade50
+                                      : Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    side: BorderSide(
+                                      color: isSelected
+                                          ? Colors.teal
+                                          : Colors.grey.shade300,
+                                      width: isSelected ? 2 : 1,
+                                    ),
+                                  ),
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(12),
+                                    onTap: () {
+                                      setState(() {
+                                        _selectedPortion = portion;
+                                      });
+                                    },
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(16),
+                                      child: Row(
+                                        children: [
+                                          // Radio button
+                                          Radio<Portion>(
+                                            value: portion,
+                                            groupValue: _selectedPortion,
+                                            onChanged: (value) {
+                                              setState(() {
+                                                _selectedPortion = value;
+                                              });
+                                            },
+                                            activeColor: Colors.teal,
+                                          ),
+                                          const SizedBox(width: 12),
+
+                                          // Portion info
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                // Portion label (e.g., "1 cup", "1/2 cup")
+                                                Text(
+                                                  portion.label,
+                                                  style: TextStyle(
+                                                    fontSize: 18,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: isSelected
+                                                        ? Colors.teal.shade800
+                                                        : Colors.black87,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 4),
+
+                                                // Grams
+                                                Row(
+                                                  children: [
+                                                    Icon(
+                                                      Icons.scale,
+                                                      size: 16,
+                                                      color:
+                                                          Colors.grey.shade600,
+                                                    ),
+                                                    const SizedBox(width: 4),
+                                                    Text(
+                                                      '${portion.grams.toStringAsFixed(0)}g',
+                                                      style: TextStyle(
+                                                        fontSize: 15,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        color: Colors
+                                                            .grey.shade700,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 16),
+
+                                                    // Carbs
+                                                    Icon(
+                                                      Icons.grain,
+                                                      size: 16,
+                                                      color: Colors
+                                                          .orange.shade700,
+                                                    ),
+                                                    const SizedBox(width: 4),
+                                                    Text(
+                                                      '${portionCarbs.toStringAsFixed(1)}g carbs',
+                                                      style: TextStyle(
+                                                        fontSize: 14,
+                                                        color: Colors
+                                                            .grey.shade700,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                const SizedBox(height: 2),
+
+                                                // Calories
+                                                Text(
+                                                  '${portionCalories.toStringAsFixed(0)} kcal',
+                                                  style: TextStyle(
+                                                    fontSize: 13,
+                                                    color: Colors.grey.shade600,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+
+                                          // Checkmark for selected
+                                          if (isSelected)
+                                            Icon(
+                                              Icons.check_circle,
+                                              color: Colors.teal,
+                                              size: 28,
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                );
                               },
-                              child: ListView.builder(
-                                itemCount: _portions.length,
-                                itemBuilder: (context, index) {
-                                  final portion = _portions[index];
-                                  return RadioListTile<Portion>(
-                                    title: Text(portion.label),
-                                    subtitle: Text(
-                                        '${portion.grams.toStringAsFixed(0)}g'),
-                                    value: portion,
-                                  );
-                                },
-                              ),
                             ),
                     ),
-                    Padding(
+
+                    // Bottom action buttons - always visible
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 10,
+                            offset: const Offset(0, -2),
+                          ),
+                        ],
+                      ),
                       padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        children: [
-                          // AR Viewer Button
-                          if (_selectedPortion != null)
+                      child: SafeArea(
+                        top: false,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Info message when no portion selected
+                            if (_selectedPortion == null)
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(12),
+                                margin: const EdgeInsets.only(bottom: 12),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.shade50,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border:
+                                      Border.all(color: Colors.blue.shade200),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.info_outline,
+                                        color: Colors.blue.shade700, size: 20),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        'Select a portion above to continue',
+                                        style: TextStyle(
+                                          color: Colors.blue.shade700,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                            // AR Viewer Button - ALWAYS VISIBLE
                             SizedBox(
                               width: double.infinity,
                               child: OutlinedButton.icon(
-                                onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => ARPortionViewer(
-                                        foodName: widget.food.name,
-                                        portionGrams: _selectedPortion!.grams,
-                                      ),
-                                    ),
-                                  );
-                                },
+                                onPressed: _selectedPortion != null
+                                    ? () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                ARPortionViewer(
+                                              foodName: widget.food.name,
+                                              portionGrams:
+                                                  _selectedPortion!.grams,
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                    : null,
                                 icon: const Icon(Icons.view_in_ar),
-                                label: const Text('View in AR'),
+                                label: const Text('View Portion in AR'),
                                 style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
-                                  side: BorderSide(color: Colors.purple.shade400, width: 2),
-                                  foregroundColor: Colors.purple.shade700,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 16),
+                                  side: BorderSide(
+                                    color: _selectedPortion != null
+                                        ? Colors.purple.shade400
+                                        : Colors.grey.shade300,
+                                    width: 2,
+                                  ),
+                                  foregroundColor: _selectedPortion != null
+                                      ? Colors.purple.shade700
+                                      : Colors.grey.shade400,
                                 ),
                               ),
                             ),
-                          if (_selectedPortion != null) const SizedBox(height: 12),
-                          // Add to Meal Button
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: _addToMeal,
-                              style: ElevatedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 16),
+                            const SizedBox(height: 12),
+
+                            // Add to Meal Button - ALWAYS VISIBLE
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed: _selectedPortion != null
+                                    ? _addToMeal
+                                    : null,
+                                icon: const Icon(Icons.add_circle),
+                                label: const Text('Add to Meal'),
+                                style: ElevatedButton.styleFrom(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 16),
+                                  backgroundColor: _selectedPortion != null
+                                      ? null
+                                      : Colors.grey.shade300,
+                                  foregroundColor: _selectedPortion != null
+                                      ? Colors.white
+                                      : Colors.grey.shade500,
+                                ),
                               ),
-                              child: const Text('Add to Meal'),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ],

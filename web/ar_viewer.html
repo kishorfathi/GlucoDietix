@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AR Portion Viewer</title>
+    <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            color: white;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        .header .portion-info {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            padding: 8px 16px;
+            display: inline-block;
+            font-size: 18px;
+            font-weight: bold;
+            margin-top: 8px;
+        }
+
+        .container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+        }
+
+        #ar-container {
+            flex: 1;
+            background: white;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            position: relative;
+            min-height: 400px;
+        }
+
+        model-viewer {
+            width: 100%;
+            height: 100%;
+            --progress-bar-color: #7c3aed;
+        }
+
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 16px;
+            margin-top: 16px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .controls h3 {
+            color: #764ba2;
+            margin-bottom: 12px;
+            font-size: 18px;
+        }
+
+        .portion-selector {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .portion-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 16px 12px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+            text-align: center;
+        }
+
+        .portion-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .portion-btn.active {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            box-shadow: 0 4px 12px rgba(245, 87, 108, 0.4);
+        }
+
+        .portion-btn .emoji {
+            font-size: 24px;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .portion-btn .grams {
+            font-size: 11px;
+            opacity: 0.9;
+        }
+
+        .ar-prompt {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(124, 58, 237, 0.95);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 30px;
+            font-size: 14px;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            z-index: 10;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: translateX(-50%) scale(1); }
+            50% { transform: translateX(-50%) scale(1.05); }
+        }
+
+        .info-card {
+            background: linear-gradient(135deg, #f093fb22 0%, #f5576c22 100%);
+            border-left: 4px solid #f5576c;
+            padding: 16px;
+            border-radius: 8px;
+            margin-top: 16px;
+        }
+
+        .info-card h4 {
+            color: #764ba2;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+
+        .info-card ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .info-card li {
+            padding: 4px 0;
+            padding-left: 20px;
+            position: relative;
+            font-size: 14px;
+            color: #555;
+        }
+
+        .info-card li::before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #10b981;
+            font-weight: bold;
+        }
+
+        .back-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 48px;
+            height: 48px;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s;
+            z-index: 100;
+        }
+
+        .back-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.1);
+        }
+
+        @media (max-width: 768px) {
+            .portion-selector {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <button class="back-btn" onclick="window.history.back()">✕</button>
+
+    <div class="header">
+        <h1 id="food-name">Portion Size Viewer</h1>
+        <div class="portion-info">
+            <span id="current-grams">195</span>g
+        </div>
+    </div>
+
+    <div class="container">
+        <div id="ar-container">
+            <model-viewer
+                id="model-viewer"
+                ar
+                ar-modes="webxr scene-viewer quick-look"
+                camera-controls
+                touch-action="pan-y"
+                auto-rotate
+                shadow-intensity="1"
+                exposure="1"
+                camera-orbit="0deg 75deg 2m"
+                min-camera-orbit="auto auto 1m"
+                max-camera-orbit="auto auto 10m">
+                
+                <div class="ar-prompt" slot="ar-button">
+                    📱 Tap to view in AR
+                </div>
+
+                <div id="lazy-load-poster" slot="poster">
+                    <div style="display: flex; align-items: center; justify-content: center; height: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                        <div style="text-align: center; color: white;">
+                            <div style="font-size: 64px; margin-bottom: 16px;">🍽️</div>
+                            <div style="font-size: 18px; font-weight: 600;">Loading 3D Portion...</div>
+                        </div>
+                    </div>
+                </div>
+            </model-viewer>
+        </div>
+
+        <div class="controls">
+            <h3>Select Portion Size</h3>
+            <div class="portion-selector">
+                <button class="portion-btn" onclick="setPortion(15, '👍', '1 tbsp')">
+                    <span class="emoji">👍</span>
+                    <div>Thumb</div>
+                    <div class="grams">15g</div>
+                </button>
+                <button class="portion-btn" onclick="setPortion(50, '⛳', '1/4 cup')">
+                    <span class="emoji">⛳</span>
+                    <div>Golf Ball</div>
+                    <div class="grams">50g</div>
+                </button>
+                <button class="portion-btn" onclick="setPortion(100, '✊', '1/2 cup')">
+                    <span class="emoji">✊</span>
+                    <div>Fist</div>
+                    <div class="grams">100g</div>
+                </button>
+                <button class="portion-btn active" onclick="setPortion(195, '🖐️', '1 cup')">
+                    <span class="emoji">🖐️</span>
+                    <div>Cupped Hand</div>
+                    <div class="grams">195g</div>
+                </button>
+                <button class="portion-btn" onclick="setPortion(300, '🍽️', '1.5 cups')">
+                    <span class="emoji">🍽️</span>
+                    <div>Small Plate</div>
+                    <div class="grams">300g</div>
+                </button>
+                <button class="portion-btn" onclick="setPortion(400, '🍛', '2 cups')">
+                    <span class="emoji">🍛</span>
+                    <div>Full Plate</div>
+                    <div class="grams">400g</div>
+                </button>
+            </div>
+        </div>
+
+        <div class="info-card">
+            <h4>📏 How to Use AR:</h4>
+            <ul>
+                <li>Tap the "Tap to view in AR" button above</li>
+                <li>Point your camera at a flat surface (table, plate)</li>
+                <li>The 3D portion will appear showing actual size</li>
+                <li>Walk around to see from different angles</li>
+                <li>Compare with your actual food portion</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Get URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const foodName = urlParams.get('food') || 'Food Portion';
+        const initialGrams = parseFloat(urlParams.get('grams')) || 195;
+
+        // Set food name
+        document.getElementById('food-name').textContent = foodName;
+        document.getElementById('current-grams').textContent = initialGrams;
+
+        const modelViewer = document.getElementById('model-viewer');
+        let currentGrams = initialGrams;
+
+        // Generate simple 3D model (cylinder to represent portion)
+        function generatePortionModel(grams) {
+            // Calculate dimensions based on grams
+            // Assume 1 cup (195g) = 8cm diameter, 5cm height
+            const baseRadius = 0.08; // 8cm in meters
+            const baseHeight = 0.05; // 5cm in meters
+            
+            const scale = Math.cbrt(grams / 195); // Scale proportionally
+            const radius = baseRadius * scale;
+            const height = baseHeight * scale;
+
+            // Create simple glTF model data
+            const glbData = createCylinderGLB(radius, height, grams);
+            const blob = new Blob([glbData], { type: 'model/gltf-binary' });
+            const url = URL.createObjectURL(blob);
+            
+            modelViewer.src = url;
+        }
+
+        // Simplified 3D cylinder creation (would typically use a proper 3D library)
+        function createCylinderGLB(radius, height, grams) {
+            // For demonstration, we'll use a placeholder
+            // In production, you'd generate actual GLB files or use pre-made models
+            
+            // Use data URI for simple cube as placeholder
+            const placeholderGLB = 'data:model/gltf-binary;base64,Z2xURg=='; // Minimal GLB header
+            return placeholderGLB;
+        }
+
+        // Set portion size
+        function setPortion(grams, emoji, label) {
+            currentGrams = grams;
+            document.getElementById('current-grams').textContent = grams;
+            
+            // Update active button
+            document.querySelectorAll('.portion-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.closest('.portion-btn').classList.add('active');
+            
+            // Update 3D model size
+            const scale = Math.cbrt(grams / 195);
+            modelViewer.scale = `${scale} ${scale} ${scale}`;
+            
+            // Update camera orbit for better view
+            const distance = 1 + (scale - 1) * 0.5;
+            modelViewer.cameraOrbit = `0deg 75deg ${distance}m`;
+        }
+
+        // Initialize
+        window.addEventListener('DOMContentLoaded', () => {
+            // Use a simple 3D model URL (you can replace with actual food models)
+            // For now, we'll use a simple shape generator service
+            modelViewer.src = 'https://modelviewer.dev/shared-assets/models/Astronaut.glb';
+            
+            // Set initial scale
+            const scale = Math.cbrt(currentGrams / 195);
+            modelViewer.scale = `${scale} ${scale} ${scale}`;
+        });
+
+        // Send message back to Flutter when AR is activated
+        modelViewer.addEventListener('ar-status', (event) => {
+            if (event.detail.status === 'session-started') {
+                console.log('AR Session Started');
+                // Post message to Flutter
+                if (window.flutter_inappwebview) {
+                    window.flutter_inappwebview.callHandler('arStarted', { grams: currentGrams });
+                }
+            }
+        });
+    </script>
+</body>
+</html>
