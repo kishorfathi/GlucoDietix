@@ -35,8 +35,9 @@ class FoodDetectionService {
     if (availableFoods.isEmpty) return [];
 
     print('🔑 API Key length: ${_googleVisionApiKey.length}');
-    print('🔑 API Key (first 20 chars): ${_googleVisionApiKey.isEmpty ? "EMPTY" : _googleVisionApiKey.substring(0, _googleVisionApiKey.length > 20 ? 20 : _googleVisionApiKey.length)}...');
-    
+    print(
+        '🔑 API Key (first 20 chars): ${_googleVisionApiKey.isEmpty ? "EMPTY" : _googleVisionApiKey.substring(0, _googleVisionApiKey.length > 20 ? 20 : _googleVisionApiKey.length)}...');
+
     if (_googleVisionApiKey.isNotEmpty) {
       print('📡 Calling Google Vision API...');
       final cloudLabels = await _detectLabelsWithGoogleVision(imageBytes);
@@ -132,12 +133,13 @@ class FoodDetectionService {
           })
           .whereType<_LabelSignal>()
           .toList();
-      
+
       print('✅ Detected ${labels.length} labels from Google Vision:');
       for (final label in labels) {
-        print('   - ${label.label} (${(label.confidence * 100).toStringAsFixed(1)}%)');
+        print(
+            '   - ${label.label} (${(label.confidence * 100).toStringAsFixed(1)}%)');
       }
-      
+
       return labels;
     } catch (e) {
       print('❌ Google Vision API error: $e');
@@ -189,7 +191,8 @@ class FoodDetectionService {
     return ranked.take(6).map((candidate) {
       return DetectedFood(
         food: candidate.food,
-        estimatedGrams: _estimatePortion(candidate.food, candidate.bestConfidence),
+        estimatedGrams:
+            _estimatePortion(candidate.food, candidate.bestConfidence),
         confidence: candidate.bestConfidence.clamp(0.35, 0.99).toDouble(),
         detectionMethod: detectionMethod,
         sourceLabel: candidate.bestLabel,
