@@ -327,7 +327,7 @@ class _PortionSelectionScreenState extends State<PortionSelectionScreen> {
 
                                           // Checkmark for selected
                                           if (isSelected)
-                                            Icon(
+                                            const Icon(
                                               Icons.check_circle,
                                               color: Colors.teal,
                                               size: 28,

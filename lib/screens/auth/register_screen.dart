@@ -38,7 +38,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Registration successful! Please login.'),
+            content: const Text('Registration successful! Please login.'),
             backgroundColor: Theme.of(context).colorScheme.primary,
           ),
         );
@@ -74,10 +74,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   children: [
                     Text(
                       'Create Account',
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                            color: scheme.tertiary,
-                            fontWeight: FontWeight.bold,
-                          ),
+                      style:
+                          Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                color: scheme.tertiary,
+                                fontWeight: FontWeight.bold,
+                              ),
                     ),
                     const SizedBox(height: 32),
                     TextFormField(

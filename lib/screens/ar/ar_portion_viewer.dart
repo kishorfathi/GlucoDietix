@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+// ignore: avoid_web_libraries_in_flutter
 import 'dart:html' as html;
-import 'dart:ui' as ui;
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:ui_web' as ui_web;
 
 /// AR Portion Viewer Screen
 /// Shows visual references for food portion sizes to help diabetes patients
@@ -52,8 +54,7 @@ class _ARPortionViewerState extends State<ARPortionViewer> {
     final baseUrl = html.window.location.origin;
 
     // Register camera AR iframe
-    // ignore: undefined_prefixed_name
-    ui.platformViewRegistry.registerViewFactory(
+    ui_web.platformViewRegistry.registerViewFactory(
       _cameraViewId,
       (int viewId) {
         final iframe = html.IFrameElement()
@@ -69,8 +70,7 @@ class _ARPortionViewerState extends State<ARPortionViewer> {
     );
 
     // Register 3D model AR iframe
-    // ignore: undefined_prefixed_name
-    ui.platformViewRegistry.registerViewFactory(
+    ui_web.platformViewRegistry.registerViewFactory(
       _modelViewId,
       (int viewId) {
         final iframe = html.IFrameElement()
@@ -445,7 +445,7 @@ class _ARPortionViewerState extends State<ARPortionViewer> {
               padding: const EdgeInsets.all(24),
               child: Column(
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.view_in_ar,
                     size: 64,
                     color: Colors.white,
