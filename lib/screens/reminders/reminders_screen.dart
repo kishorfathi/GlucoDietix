@@ -106,7 +106,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
               ],
             ),
             const SizedBox(height: 16),
-            
+
             // Progress bar
             LinearProgressIndicator(
               value: progress,
@@ -126,7 +126,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            
+
             // Quick add water buttons
             Wrap(
               spacing: 8,
@@ -161,7 +161,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
     setState(() {
       _todayWaterIntake += amountMl;
     });
-    
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('💧 Added ${amountMl}ml water!'),
@@ -364,8 +364,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (reminder.description != null)
-              Text(reminder.description!),
+            if (reminder.description != null) Text(reminder.description!),
             const SizedBox(height: 12),
             Text('Time: ${_formatTime(reminder.time)}'),
             const SizedBox(height: 8),

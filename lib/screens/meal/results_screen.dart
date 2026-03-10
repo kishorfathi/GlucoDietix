@@ -547,12 +547,12 @@ class _ResultsScreenState extends State<ResultsScreen> {
           ),
         ),
         const SizedBox(height: 16),
-        
+
         // Visual portion guide
         _buildVisualPortionGuide(recommendation),
-        
+
         const SizedBox(height: 12),
-        
+
         // Legend
         Wrap(
           spacing: 12,
@@ -573,7 +573,8 @@ class _ResultsScreenState extends State<ResultsScreen> {
                   const SizedBox(width: 4),
                   Text(
                     category.displayName,
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                    style: const TextStyle(
+                        fontSize: 11, fontWeight: FontWeight.w600),
                   ),
                 ],
               ),
@@ -600,20 +601,20 @@ class _ResultsScreenState extends State<ResultsScreen> {
             style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
-          
+
           // Show visual size indicators for each category
           ...recommendation.portionsByCategory.entries.map((entry) {
             final portions = entry.value;
             if (portions.isEmpty) return const SizedBox.shrink();
-            
+
             return Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: _buildPortionSizeIndicator(entry.key, portions),
             );
           }),
-          
+
           const SizedBox(height: 8),
-          
+
           // Hand measurement guide
           _buildHandMeasurementGuide(),
         ],
@@ -652,16 +653,19 @@ class _ResultsScreenState extends State<ResultsScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          _buildHandMeasurement('👊', 'Fist', 'Carbs (Rice/Grains)', '~1 cup / 150g'),
+          _buildHandMeasurement(
+              '👊', 'Fist', 'Carbs (Rice/Grains)', '~1 cup / 150g'),
           _buildHandMeasurement('✋', 'Palm', 'Protein', '~100g'),
           _buildHandMeasurement('🤏', 'Cupped Hand', 'Dhal', '~½ cup / 120g'),
-          _buildHandMeasurement('👐', 'Two Hands', 'Vegetables', '~2 cups / 300g'),
+          _buildHandMeasurement(
+              '👐', 'Two Hands', 'Vegetables', '~2 cups / 300g'),
         ],
       ),
     );
   }
 
-  Widget _buildHandMeasurement(String emoji, String handType, String foodType, String amount) {
+  Widget _buildHandMeasurement(
+      String emoji, String handType, String foodType, String amount) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
@@ -749,7 +753,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
           child: Icon(icon, color: _getCategoryColor(category), size: 24),
         ),
         const SizedBox(width: 12),
-        
+
         // Details
         Expanded(
           child: Column(
@@ -775,7 +779,8 @@ class _ResultsScreenState extends State<ResultsScreen> {
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: const Color(0xFF0B8F87),
                       borderRadius: BorderRadius.circular(4),
@@ -820,14 +825,16 @@ class _ResultsScreenState extends State<ResultsScreen> {
             ],
           ),
         ),
-        
+
         // Visual portion bar
         SizedBox(
           width: 60,
           child: Column(
             children: [
               LinearProgressIndicator(
-                value: portions.fold<double>(0, (sum, p) => sum + p.portionCount) / 4,
+                value:
+                    portions.fold<double>(0, (sum, p) => sum + p.portionCount) /
+                        4,
                 backgroundColor: Colors.grey.shade200,
                 valueColor: AlwaysStoppedAnimation(_getCategoryColor(category)),
                 minHeight: 8,
@@ -882,7 +889,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
         comparison = '≈ Golf ball';
         break;
     }
-    
+
     return Row(
       children: [
         Icon(Icons.circle, size: 8, color: Colors.grey.shade400),
@@ -949,18 +956,18 @@ class _ResultsScreenState extends State<ResultsScreen> {
           const SizedBox(height: 8),
           ...portions.map((portion) {
             final currentGrams = mealProvider.mealItems
-                    .firstWhere(
-                      (item) => item.food.id == portion.food.id,
-                      orElse: () => MealItem(
-                        food: portion.food,
-                        grams: 0,
-                      ),
-                    )
-                    .grams;
+                .firstWhere(
+                  (item) => item.food.id == portion.food.id,
+                  orElse: () => MealItem(
+                    food: portion.food,
+                    grams: 0,
+                  ),
+                )
+                .grams;
 
-            final isCorrectPortion = (currentGrams - portion.recommendedGrams)
-                    .abs() <
-                20; // Within 20g tolerance
+            final isCorrectPortion =
+                (currentGrams - portion.recommendedGrams).abs() <
+                    20; // Within 20g tolerance
 
             return Padding(
               padding: const EdgeInsets.only(bottom: 8),
@@ -968,9 +975,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(
-                    isCorrectPortion
-                        ? Icons.check_circle
-                        : Icons.adjust,
+                    isCorrectPortion ? Icons.check_circle : Icons.adjust,
                     size: 16,
                     color: isCorrectPortion ? Colors.green : Colors.orange,
                   ),
@@ -1210,7 +1215,8 @@ class _PlatePainter extends CustomPainter {
       // Draw portion count below emoji
       final portionText = TextPainter(
         text: TextSpan(
-          text: '${portion.portionCount == 1 ? '¼' : portion.portionCount == 2 ? '½' : '¾'}',
+          text:
+              '${portion.portionCount == 1 ? '¼' : portion.portionCount == 2 ? '½' : '¾'}',
           style: const TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.bold,

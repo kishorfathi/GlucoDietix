@@ -42,7 +42,7 @@ class _ProgressTrackingScreenState extends State<ProgressTrackingScreen> {
       }
     } catch (e) {
       debugPrint('Error loading progress data: $e');
-    } finally{
+    } finally {
       setState(() => _isLoading = false);
     }
   }
@@ -152,9 +152,7 @@ class _ProgressTrackingScreenState extends State<ProgressTrackingScreen> {
     final filteredReadings = _getFilteredReadings();
     final avgGlucose = filteredReadings.isEmpty
         ? 0.0
-        : filteredReadings
-                .map((r) => r.glucoseLevel)
-                .reduce((a, b) => a + b) /
+        : filteredReadings.map((r) => r.glucoseLevel).reduce((a, b) => a + b) /
             filteredReadings.length;
 
     final inRangeCount = filteredReadings
@@ -416,8 +414,8 @@ class _ProgressTrackingScreenState extends State<ProgressTrackingScreen> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            _buildDistributionRow('Very Low (<70)', veryLow, readings.length,
-                Colors.red[700]!),
+            _buildDistributionRow(
+                'Very Low (<70)', veryLow, readings.length, Colors.red[700]!),
             const SizedBox(height: 8),
             _buildDistributionRow(
                 'Normal (70-130)', normal, readings.length, Colors.green),
@@ -498,10 +496,9 @@ class _ProgressTrackingScreenState extends State<ProgressTrackingScreen> {
     final morningReadings =
         readings.where((r) => r.timestamp.hour >= 6 && r.timestamp.hour < 10);
     if (morningReadings.isNotEmpty) {
-      final morningAvg = morningReadings
-              .map((r) => r.glucoseLevel)
-              .reduce((a, b) => a + b) /
-          morningReadings.length;
+      final morningAvg =
+          morningReadings.map((r) => r.glucoseLevel).reduce((a, b) => a + b) /
+              morningReadings.length;
       if (morningAvg > 130) {
         insights.add('🌅 Morning readings are elevated. '
             'Review your dinner and bedtime snack choices.');

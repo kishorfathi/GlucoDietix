@@ -247,7 +247,8 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
                       scheme.tertiary.withValues(alpha: 0.1),
                     ],
                   ),
-                  border: Border.all(color: scheme.primary.withValues(alpha: 0.3)),
+                  border:
+                      Border.all(color: scheme.primary.withValues(alpha: 0.3)),
                 ),
                 child: const Text(
                   'Take a live photo, review predicted foods, and adjust portions before analysis.',
@@ -358,9 +359,9 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
                           ..._detectedFoods.map((detected) {
                             final isSelected =
                                 _selectedFoodIds.contains(detected.food.id);
-                            final currentPortion = _selectedPortions[
-                                    detected.food.id] ??
-                                detected.estimatedGrams;
+                            final currentPortion =
+                                _selectedPortions[detected.food.id] ??
+                                    detected.estimatedGrams;
                             final confidenceColor = detected.confidence >= 0.75
                                 ? Colors.green
                                 : detected.confidence >= 0.55
@@ -377,7 +378,8 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
                                       children: [
                                         Checkbox(
                                           value: isSelected,
-                                          onChanged: (value) => _toggleDetectedItem(
+                                          onChanged: (value) =>
+                                              _toggleDetectedItem(
                                             detected.food.id,
                                             value ?? false,
                                           ),
@@ -395,7 +397,8 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
                                               ),
                                               Text(
                                                 'Source label: ${detected.sourceLabel}',
-                                                style: theme.textTheme.bodySmall,
+                                                style:
+                                                    theme.textTheme.bodySmall,
                                               ),
                                             ],
                                           ),
@@ -404,8 +407,8 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
                                           padding: const EdgeInsets.symmetric(
                                               horizontal: 8, vertical: 4),
                                           decoration: BoxDecoration(
-                                            color: confidenceColor
-                                                .withValues(alpha: 0.1),
+                                            color: confidenceColor.withValues(
+                                                alpha: 0.1),
                                             borderRadius:
                                                 BorderRadius.circular(20),
                                             border: Border.all(
@@ -437,8 +440,8 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
                                             onChanged: isSelected
                                                 ? (value) {
                                                     setState(() {
-                                                      _selectedPortions[
-                                                          detected.food.id] = value;
+                                                      _selectedPortions[detected
+                                                          .food.id] = value;
                                                     });
                                                   }
                                                 : null,

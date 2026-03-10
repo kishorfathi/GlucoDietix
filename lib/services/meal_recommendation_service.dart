@@ -46,13 +46,13 @@ class MealRecommendationService {
   }) {
     // Calculate BMI
     final bmi = _calculateBMI(profile.weightKg, profile.heightCm);
-    
+
     // Determine calorie needs based on BMI and diabetes status
     final targetCalories = _calculateTargetCalories(profile, bmi);
-    
+
     // Get glucose-aware recommendations
     final glucoseLevel = currentGlucose ?? _estimateGlucoseFromProfile(profile);
-    
+
     return MealRecommendations(
       breakfast: _generateMealRecommendation(
         'breakfast',
@@ -143,7 +143,7 @@ class MealRecommendationService {
   ) {
     final recommendedFoods = <RecommendedFood>[];
     final categories = _mealCategories[mealType] ?? [];
-    
+
     // Filter foods for this meal type
     final suitableFoods = availableFoods.where((food) {
       final foodName = food.name.toLowerCase();
@@ -226,8 +226,8 @@ class MealRecommendationService {
 
     // Calculate based on remaining calories
     if (food.energyKcal > 0) {
-      final portion = (remainingCalories / food.energyKcal * 100)
-          .clamp(50.0, 200.0);
+      final portion =
+          (remainingCalories / food.energyKcal * 100).clamp(50.0, 200.0);
       return portion;
     }
 

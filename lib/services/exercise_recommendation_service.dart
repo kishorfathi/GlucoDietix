@@ -38,8 +38,7 @@ class ExerciseRecommendationService {
       intensity: ExerciseIntensity.low,
       caloriesBurn: 80,
       bestTime: 'Morning (before breakfast or 1-2 hours after)',
-      safetyNote:
-          'Check glucose before and after. Carry fast-acting carbs.',
+      safetyNote: 'Check glucose before and after. Carry fast-acting carbs.',
       benefits: [
         'Lowers fasting blood sugar',
         'Improves insulin sensitivity',

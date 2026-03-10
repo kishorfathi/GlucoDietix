@@ -284,10 +284,8 @@ class SupabaseService {
   }) async {
     try {
       // Build filter query
-      var filterQuery = client
-          .from('glucose_readings')
-          .select()
-          .eq('user_id', userId);
+      var filterQuery =
+          client.from('glucose_readings').select().eq('user_id', userId);
 
       if (startDate != null) {
         filterQuery = filterQuery.gte('timestamp', startDate.toIso8601String());

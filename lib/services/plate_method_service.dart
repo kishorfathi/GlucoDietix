@@ -104,7 +104,8 @@ class PlateMethodService {
         portionCount = 2;
         gramsAmount = _platePortionGrams * 2; // ~300g
         measurement = '2 cups';
-        recommendation = '2 portions (1/2 of plate) - Fill half your plate with vegetables';
+        recommendation =
+            '2 portions (1/2 of plate) - Fill half your plate with vegetables';
         break;
 
       case FoodCategory.dhal:
@@ -120,7 +121,8 @@ class PlateMethodService {
         portionCount = 1;
         gramsAmount = 100; // ~100g protein
         measurement = '3-4 tablespoons';
-        recommendation = '1 portion (1/4 of plate) - About 3-4 tablespoons of curry';
+        recommendation =
+            '1 portion (1/4 of plate) - About 3-4 tablespoons of curry';
         break;
 
       case FoodCategory.other:
@@ -253,7 +255,8 @@ class PlateRecommendation {
   bool get isBalanced {
     final hasRice = portions.any((p) => p.category == FoodCategory.rice);
     final hasVeg = portions.any((p) => p.category == FoodCategory.vegetable);
-    final hasProtein = portions.any((p) => p.category == FoodCategory.protein || p.category == FoodCategory.dhal);
+    final hasProtein = portions.any((p) =>
+        p.category == FoodCategory.protein || p.category == FoodCategory.dhal);
 
     return hasRice && hasVeg && hasProtein;
   }
@@ -268,7 +271,9 @@ class PlateRecommendation {
     if (!portions.any((p) => p.category == FoodCategory.vegetable)) {
       missing.add('Vegetables (1/2 plate)');
     }
-    if (!portions.any((p) => p.category == FoodCategory.protein || p.category == FoodCategory.dhal)) {
+    if (!portions.any((p) =>
+        p.category == FoodCategory.protein ||
+        p.category == FoodCategory.dhal)) {
       missing.add('Protein or Dhal');
     }
 
