@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../models/food.dart';
 import '../models/portion.dart';
 import '../models/user_profile.dart';
+import '../models/glucose_reading.dart';
 
 /// Supabase Service
 class SupabaseService {
@@ -272,5 +273,70 @@ class SupabaseService {
         await client.from('portions').select().eq('food_id', foodId);
 
     return (response as List).map((json) => Portion.fromJson(json)).toList();
+  }
+
+  // Glucose Reading Methods
+  Future<List<GlucoseReading>> getGlucoseReadings(
+    String userId, {
+    int? limit,
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    try {
+      // Build filter query
+      var filterQuery = client
+          .from('glucose_readings')
+          .select()
+          .eq('user_id', userId);
+
+      if (startDate != null) {
+        filterQuery = filterQuery.gte('timestamp', startDate.toIso8601String());
+      }
+
+      if (endDate != null) {
+        filterQuery = filterQuery.lte('timestamp', endDate.toIso8601String());
+      }
+
+      // Apply order and limit
+      var finalQuery = filterQuery.order('timestamp', ascending: false);
+
+      if (limit != null) {
+        finalQuery = finalQuery.limit(limit);
+      }
+
+      final response = await finalQuery;
+      return (response as List)
+          .map((json) => GlucoseReading.fromJson(json))
+          .toList();
+    } catch (e) {
+      debugPrint('Error getting glucose readings: $e');
+      return [];
+    }
+  }
+
+  Future<void> saveGlucoseReading(GlucoseReading reading) async {
+    try {
+      await client.from('glucose_readings').insert(reading.toJson());
+    } catch (e) {
+      debugPrint('Error saving glucose reading: $e');
+      rethrow;
+    }
+  }
+
+  /// Get all foods (for meal recommendations)
+  Future<List<Food>> getAllFoods({int? limit}) async {
+    try {
+      var query = client.from('foods').select().order('name');
+
+      if (limit != null) {
+        query = query.limit(limit);
+      }
+
+      final response = await query;
+      return (response as List).map((json) => Food.fromJson(json)).toList();
+    } catch (e) {
+      debugPrint('Error getting all foods: $e');
+      return [];
+    }
   }
 }

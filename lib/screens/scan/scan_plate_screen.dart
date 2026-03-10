@@ -38,22 +38,58 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
   }
 
   Future<void> _openCameraAndDetect() async {
-    final captured = await Navigator.push<CapturedPhoto>(
-      context,
-      MaterialPageRoute(builder: (_) => const CameraCaptureScreen()),
-    );
+    // On web, use image_picker for camera access (camera package doesn't work on web)
+    if (kIsWeb) {
+      try {
+        final photo = await _picker.pickImage(
+          source: ImageSource.camera,
+          maxWidth: 1920,
+          maxHeight: 1080,
+          imageQuality: 90,
+        );
 
-    if (!mounted || captured == null) return;
+        if (!mounted || photo == null) return;
 
-    setState(() {
-      _imageBytes = captured.bytes;
-      _detectedFoods = [];
-      _selectedFoodIds.clear();
-      _selectedPortions.clear();
-      _mlNotice = null;
-    });
+        final bytes = await photo.readAsBytes();
+        if (!mounted) return;
 
-    await _detectFoods(captured.file.path);
+        setState(() {
+          _imageBytes = bytes;
+          _detectedFoods = [];
+          _selectedFoodIds.clear();
+          _selectedPortions.clear();
+          _mlNotice = null;
+        });
+
+        await _detectFoods(photo.path);
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to access camera: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } else {
+      // On mobile platforms, use the dedicated camera screen
+      final captured = await Navigator.push<CapturedPhoto>(
+        context,
+        MaterialPageRoute(builder: (_) => const CameraCaptureScreen()),
+      );
+
+      if (!mounted || captured == null) return;
+
+      setState(() {
+        _imageBytes = captured.bytes;
+        _detectedFoods = [];
+        _selectedFoodIds.clear();
+        _selectedPortions.clear();
+        _mlNotice = null;
+      });
+
+      await _detectFoods(captured.file.path);
+    }
   }
 
   Future<void> _uploadPlateAndDetect() async {

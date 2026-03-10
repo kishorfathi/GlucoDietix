@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/user_profile_provider.dart';
 import '../screens/auth/login_screen.dart';
-import '../screens/meal/meal_builder_screen.dart';
+import '../screens/home/home_dashboard_screen.dart';
 import '../screens/profile/profile_screen.dart';
 import '../widgets/loading_indicator.dart';
 
@@ -68,7 +68,7 @@ class AuthGate extends StatelessWidget {
     }
 
     // Profile loaded - show main screen
-    debugPrint('AuthGate: Showing MealBuilderScreen');
-    return const MealBuilderScreen();
+    debugPrint('AuthGate: Showing HomeDashboardScreen');
+    return const HomeDashboardScreen();
   }
 }
