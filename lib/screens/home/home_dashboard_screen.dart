@@ -42,9 +42,17 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           Provider.of<UserProfileProvider>(context, listen: false).userProfile;
 
       if (profile != null) {
+        debugPrint('Loading glucose readings for user: ${profile.id}');
+
         // Load recent glucose readings
         final readings =
             await _supabaseService.getGlucoseReadings(profile.id, limit: 10);
+
+        debugPrint('Loaded ${readings.length} glucose readings');
+        for (var reading in readings) {
+          debugPrint(
+              '  - ${reading.glucoseLevel} mg/dL at ${reading.timestamp}');
+        }
 
         GlucoseAlert? alert;
         if (readings.isNotEmpty) {
@@ -61,6 +69,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           _recentReadings = readings;
           _currentAlert = alert;
         });
+      } else {
+        debugPrint('No user profile found');
       }
     } catch (e) {
       debugPrint('Error loading dashboard data: $e');
@@ -92,23 +102,24 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             ? const Center(child: CircularProgressIndicator())
             : SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Welcome header
                     _buildWelcomeHeader(profile),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
 
                     // Glucose alert (if any)
                     if (_currentAlert != null) ...[
                       _buildGlucoseAlert(_currentAlert!),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 10),
                     ],
 
-                    // Current glucose status
-                    _buildGlucoseStatusCard(),
-                    const SizedBox(height: 16),
+                    // Glucose readings in horizontal cards
+                    if (_recentReadings.isNotEmpty) _buildGlucoseReadingsRow(),
+
+                    const SizedBox(height: 12),
 
                     // Quick actions
                     _buildQuickActions(),
@@ -226,191 +237,317 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
 
   Widget _buildGlucoseAlert(GlucoseAlert alert) {
     return Card(
-      color: Color(alert.color).withOpacity(0.1),
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.warning_rounded,
-                  color: Color(alert.color),
-                  size: 28,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        alert.title,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Color(alert.color),
-                        ),
-                      ),
-                      Text(
-                        alert.urgency,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[700],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              alert.message,
-              style: const TextStyle(fontSize: 14),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Color(alert.color).withOpacity(0.3)),
+      color: Color(alert.color).withOpacity(0.08),
+      elevation: 1,
+      child: InkWell(
+        onTap: () {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: Row(
+                children: [
+                  Icon(Icons.warning_rounded, color: Color(alert.color)),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(alert.title)),
+                ],
               ),
-              child: Column(
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Text(alert.message),
+                  const SizedBox(height: 16),
                   const Text(
-                    '📋 Recommended Actions:',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    'Recommended Actions:',
+                    style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
                   ...alert.recommendations.map(
                     (rec) => Padding(
                       padding: const EdgeInsets.only(bottom: 4),
-                      child: Text(
-                        rec,
-                        style: const TextStyle(fontSize: 12, height: 1.4),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('• ', style: TextStyle(fontSize: 16)),
+                          Expanded(
+                              child: Text(rec,
+                                  style: const TextStyle(fontSize: 13))),
+                        ],
                       ),
                     ),
                   ),
                 ],
               ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Got it'),
+                ),
+              ],
             ),
-          ],
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Icon(
+                Icons.warning_rounded,
+                color: Color(alert.color),
+                size: 20,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      alert.title,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: Color(alert.color),
+                      ),
+                    ),
+                    Text(
+                      alert.message,
+                      style: TextStyle(fontSize: 11, color: Colors.grey[700]),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, size: 18, color: Colors.grey[400]),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildGlucoseStatusCard() {
-    if (_recentReadings.isEmpty) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
+  Widget _buildGlucoseReadingsRow() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Icon(Icons.bloodtype, size: 48, color: Colors.grey),
-              const SizedBox(height: 8),
-              const Text('No glucose readings yet'),
-              const SizedBox(height: 12),
-              ElevatedButton.icon(
-                onPressed: _addGlucoseReading,
-                icon: const Icon(Icons.add),
-                label: const Text('Add Reading'),
+              const Text(
+                '🩸 Glucose Readings',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Row(
+                children: [
+                  TextButton.icon(
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      minimumSize: const Size(0, 0),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    onPressed: _addGlucoseReading,
+                    icon: const Icon(Icons.add, size: 14),
+                    label: const Text('Add', style: TextStyle(fontSize: 11)),
+                  ),
+                  TextButton(
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      minimumSize: const Size(0, 0),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const ProgressTrackingScreen(),
+                        ),
+                      );
+                    },
+                    child:
+                        const Text('View All', style: TextStyle(fontSize: 11)),
+                  ),
+                ],
               ),
             ],
           ),
         ),
-      );
-    }
+        SizedBox(
+          height: 150,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: _recentReadings.length > 6 ? 6 : _recentReadings.length,
+            itemBuilder: (context, index) {
+              final reading = _recentReadings[index];
+              final statusColor = _getGlucoseStatusColor(reading.glucoseLevel);
+              final isLatest = index == 0;
 
-    final latest = _recentReadings.first;
-    final profile =
-        Provider.of<UserProfileProvider>(context, listen: false).userProfile;
-
-    return Card(
-      color: _getGlucoseStatusColor(latest.glucoseLevel).withOpacity(0.1),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  '🩸 Latest Glucose Reading',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+              return Container(
+                width: 135,
+                margin: EdgeInsets.only(right: 10, left: index == 0 ? 4 : 0),
+                child: Card(
+                  elevation: isLatest ? 3 : 1,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.add_circle_outline),
-                  onPressed: _addGlucoseReading,
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Text(
-                  latest.glucoseLevel.toStringAsFixed(0),
-                  style: TextStyle(
-                    fontSize: 48,
-                    fontWeight: FontWeight.bold,
-                    color: _getGlucoseStatusColor(latest.glucoseLevel),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'mg/dL',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey[600],
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: isLatest
+                            ? [
+                                const Color(0xFF0B8F87).withOpacity(0.15),
+                                const Color(0xFF47BAC1).withOpacity(0.15)
+                              ]
+                            : [Colors.grey.shade50, Colors.grey.shade100],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isLatest
+                            ? const Color(0xFF0B8F87).withOpacity(0.3)
+                            : Colors.grey.shade200,
+                        width: 1.5,
                       ),
                     ),
-                    Text(
-                      latest.getStatus(),
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: _getGlucoseStatusColor(latest.glucoseLevel),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () {
+                        showDialog(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: Text(isLatest
+                                ? 'Latest Reading'
+                                : 'Reading Details'),
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${reading.glucoseLevel.toStringAsFixed(1)} mg/dL',
+                                  style: TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                      color: statusColor),
+                                ),
+                                const SizedBox(height: 8),
+                                Text('Status: ${reading.getStatus()}',
+                                    style: TextStyle(color: statusColor)),
+                                Text(
+                                    'Type: ${_capitalize(reading.readingType.replaceAll('_', ' '))}'),
+                                Text(
+                                    'Time: ${_formatDateTime(reading.timestamp)}'),
+                              ],
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('Close'),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                if (isLatest)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 6, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF0B8F87),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: const Text(
+                                      'New',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                const Spacer(),
+                                Icon(Icons.bloodtype,
+                                    size: 18, color: statusColor),
+                              ],
+                            ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  reading.glucoseLevel.toStringAsFixed(0),
+                                  style: TextStyle(
+                                    fontSize: 36,
+                                    fontWeight: FontWeight.bold,
+                                    color: statusColor,
+                                    height: 1,
+                                  ),
+                                ),
+                                Text(
+                                  'mg/dL',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: statusColor,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    reading.getStatus(),
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  _formatDateTime(reading.timestamp),
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.grey[700],
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ],
+                  ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '${_formatDateTime(latest.timestamp)} • ${_capitalize(latest.readingType.replaceAll('_', ' '))}',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[600],
-              ),
-            ),
-            if (profile != null) ...[
-              const SizedBox(height: 12),
-              Text(
-                'Target: ${profile.targetGlucoseMin.toInt()}-${profile.targetGlucoseMax.toInt()} mg/dL',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[700],
-                ),
-              ),
-            ],
-          ],
+              );
+            },
+          ),
         ),
-      ),
+      ],
     );
   }
 
@@ -622,15 +759,59 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               onPressed: () async {
                 final glucose = double.tryParse(glucoseController.text);
                 if (glucose != null) {
-                  // TODO: Save to database
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content:
-                          Text('Glucose reading saved! Check alerts above.'),
-                    ),
-                  );
-                  _loadDashboardData();
+                  final profile = Provider.of<UserProfileProvider>(
+                    context,
+                    listen: false,
+                  ).userProfile;
+
+                  if (profile != null) {
+                    try {
+                      debugPrint(
+                          'Saving glucose reading: $glucose mg/dL, type: $selectedType');
+
+                      // Create glucose reading
+                      final reading = GlucoseReading(
+                        id: '${profile.id}_${DateTime.now().millisecondsSinceEpoch}',
+                        userId: profile.id,
+                        glucoseLevel: glucose,
+                        timestamp: DateTime.now(),
+                        readingType: selectedType,
+                      );
+
+                      debugPrint(
+                          'Glucose reading created: ${reading.toJson()}');
+
+                      // Save to database
+                      await _supabaseService.saveGlucoseReading(reading);
+
+                      debugPrint(
+                          'Glucose reading saved successfully to database');
+
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Glucose reading saved successfully!'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+
+                      // Reload dashboard data
+                      debugPrint('Reloading dashboard data...');
+                      await _loadDashboardData();
+                    } catch (e) {
+                      debugPrint('ERROR saving glucose reading: $e');
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Error saving reading: $e'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  } else {
+                    debugPrint(
+                        'ERROR: No user profile found when trying to save glucose reading');
+                  }
                 }
               },
               child: const Text('Save'),

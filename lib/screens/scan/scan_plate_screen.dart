@@ -30,6 +30,7 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
   final Map<String, double> _selectedPortions = {};
   bool _isDetecting = false;
   String? _mlNotice;
+  bool _useCupMeasurement = true; // Default to cup/spoon measurements
 
   @override
   void dispose() {
@@ -222,6 +223,84 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
     });
   }
 
+  // Convert grams to cup/spoon measurement
+  String _gramsToCupSpoon(double grams, DetectedFood detected) {
+    final food = detected.food;
+    final category = food.category.toLowerCase();
+    final name = food.name.toLowerCase();
+
+    // Rice and grains
+    if (category.contains('rice') ||
+        category.contains('grain') ||
+        name.contains('rice') ||
+        name.contains('bread')) {
+      final cups = grams / 150; // 1 cup ≈ 150g cooked rice
+      if (cups < 0.25) {
+        return '${(grams / 37.5).toStringAsFixed(1)} tbsp';
+      } else if (cups < 1) {
+        return '${(cups * 4).toStringAsFixed(1)}/4 cup';
+      } else {
+        return '${cups.toStringAsFixed(1)} cup${cups > 1 ? 's' : ''}';
+      }
+    }
+
+    // Vegetables
+    if (category.contains('vegetable') ||
+        category.contains('salad') ||
+        name.contains('vegetable') ||
+        name.contains('beetroot') ||
+        name.contains('carrot')) {
+      final cups = grams / 150; // 1 cup ≈ 150g vegetables
+      if (cups < 1) {
+        return '${(cups * 4).toStringAsFixed(1)}/4 cup';
+      } else {
+        return '${cups.toStringAsFixed(1)} cup${cups > 1 ? 's' : ''}';
+      }
+    }
+
+    // Dhal/Lentils (liquid curry)
+    if (category.contains('lentil') ||
+        category.contains('dhal') ||
+        name.contains('dhal') ||
+        name.contains('dal') ||
+        name.contains('parippu')) {
+      final cups = grams / 240; // 1 cup ≈ 240g liquid
+      if (cups < 0.25) {
+        return '${(grams / 15).toStringAsFixed(0)} tbsp';
+      } else if (cups < 1) {
+        return '${(cups * 4).toStringAsFixed(1)}/4 cup';
+      } else {
+        return '${cups.toStringAsFixed(1)} cup${cups > 1 ? 's' : ''}';
+      }
+    }
+
+    // Protein/Curry (use tablespoons for smaller amounts)
+    if (category.contains('meat') ||
+        category.contains('fish') ||
+        category.contains('curry') ||
+        name.contains('curry') ||
+        name.contains('chicken') ||
+        name.contains('beef') ||
+        name.contains('fish')) {
+      final tbsp = grams / 15; // 1 tbsp ≈ 15g
+      if (tbsp < 4) {
+        return '${tbsp.toStringAsFixed(1)} tbsp';
+      } else if (tbsp < 16) {
+        return '${(tbsp / 4).toStringAsFixed(1)}/4 cup';
+      } else {
+        return '${(grams / 240).toStringAsFixed(1)} cup';
+      }
+    }
+
+    // Default: use tablespoons
+    final tbsp = grams / 15;
+    if (tbsp < 4) {
+      return '${tbsp.toStringAsFixed(1)} tbsp';
+    } else {
+      return '${(grams / 240).toStringAsFixed(1)} cup';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -350,10 +429,52 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
                             ),
                           ),
                         ] else ...[
-                          Text(
-                            'Detected foods (${_detectedFoods.length})',
-                            style: theme.textTheme.titleMedium
-                                ?.copyWith(fontWeight: FontWeight.w700),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  'Detected foods (${_detectedFoods.length})',
+                                  style: theme.textTheme.titleMedium
+                                      ?.copyWith(fontWeight: FontWeight.w700),
+                                ),
+                              ),
+                              // Measurement toggle
+                              Container(
+                                padding: const EdgeInsets.all(3),
+                                decoration: BoxDecoration(
+                                  color: scheme.primaryContainer,
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    _buildMeasurementToggle(
+                                      icon: Icons.restaurant,
+                                      label: 'Cup',
+                                      isSelected: _useCupMeasurement,
+                                      onTap: () {
+                                        setState(() {
+                                          _useCupMeasurement = true;
+                                        });
+                                      },
+                                      scheme: scheme,
+                                    ),
+                                    const SizedBox(width: 2),
+                                    _buildMeasurementToggle(
+                                      icon: Icons.scale,
+                                      label: 'g',
+                                      isSelected: !_useCupMeasurement,
+                                      onTap: () {
+                                        setState(() {
+                                          _useCupMeasurement = false;
+                                        });
+                                      },
+                                      scheme: scheme,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 8),
                           ..._detectedFoods.map((detected) {
@@ -435,8 +556,10 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
                                             min: 20,
                                             max: 400,
                                             divisions: 76,
-                                            label:
-                                                '${currentPortion.toStringAsFixed(0)} g',
+                                            label: _useCupMeasurement
+                                                ? _gramsToCupSpoon(
+                                                    currentPortion, detected)
+                                                : '${currentPortion.toStringAsFixed(0)} g',
                                             onChanged: isSelected
                                                 ? (value) {
                                                     setState(() {
@@ -448,11 +571,36 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
                                           ),
                                         ),
                                         SizedBox(
-                                          width: 78,
-                                          child: Text(
-                                            '${currentPortion.toStringAsFixed(0)} g',
-                                            textAlign: TextAlign.right,
-                                            style: theme.textTheme.titleSmall,
+                                          width: 90,
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.end,
+                                            children: [
+                                              Text(
+                                                _useCupMeasurement
+                                                    ? _gramsToCupSpoon(
+                                                        currentPortion,
+                                                        detected)
+                                                    : '${currentPortion.toStringAsFixed(0)} g',
+                                                textAlign: TextAlign.right,
+                                                style: theme
+                                                    .textTheme.titleSmall
+                                                    ?.copyWith(
+                                                  fontWeight: FontWeight.bold,
+                                                  color: scheme.primary,
+                                                ),
+                                              ),
+                                              if (_useCupMeasurement)
+                                                Text(
+                                                  '${currentPortion.toStringAsFixed(0)} g',
+                                                  textAlign: TextAlign.right,
+                                                  style: theme
+                                                      .textTheme.bodySmall
+                                                      ?.copyWith(
+                                                    color: Colors.grey,
+                                                  ),
+                                                ),
+                                            ],
                                           ),
                                         ),
                                       ],
@@ -504,6 +652,45 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
               ],
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMeasurementToggle({
+    required IconData icon,
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+    required ColorScheme scheme,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: isSelected ? scheme.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 14,
+              color: isSelected ? scheme.onPrimary : scheme.onPrimaryContainer,
+            ),
+            const SizedBox(width: 3),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color:
+                    isSelected ? scheme.onPrimary : scheme.onPrimaryContainer,
+              ),
+            ),
+          ],
         ),
       ),
     );

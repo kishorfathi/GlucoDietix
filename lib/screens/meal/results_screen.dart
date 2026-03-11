@@ -638,11 +638,11 @@ class _ResultsScreenState extends State<ResultsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          const Row(
             children: [
-              const Icon(Icons.pan_tool, color: Color(0xFF0B8F87), size: 18),
-              const SizedBox(width: 6),
-              const Text(
+              Icon(Icons.pan_tool, color: Color(0xFF0B8F87), size: 18),
+              SizedBox(width: 6),
+              Text(
                 'Quick Hand Measurement Guide',
                 style: TextStyle(
                   fontSize: 13,
@@ -1215,8 +1215,11 @@ class _PlatePainter extends CustomPainter {
       // Draw portion count below emoji
       final portionText = TextPainter(
         text: TextSpan(
-          text:
-              '${portion.portionCount == 1 ? '¼' : portion.portionCount == 2 ? '½' : '¾'}',
+          text: portion.portionCount == 1
+              ? '¼'
+              : portion.portionCount == 2
+                  ? '½'
+                  : '¾',
           style: const TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.bold,

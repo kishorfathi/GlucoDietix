@@ -128,6 +128,29 @@ class HealthRecommendationService {
     List<String> warnings,
     List<String> portionSuggestions,
   ) {
+    // Check for diabetes-friendly staple choices
+    final diabetesFriendlyStaples = [
+      'string hoppers',
+      'idiyappam',
+      'red rice',
+      'brown rice',
+      'pittu',
+      'roti',
+      'sweet potato',
+      'sweet potatoes',
+    ];
+
+    final hasDiabetesFriendlyStaple = items.any((item) {
+      final itemNameLower = item.food.name.toLowerCase();
+      return item.food.category == 'Staples' &&
+          diabetesFriendlyStaples
+              .any((friendly) => itemNameLower.contains(friendly));
+    });
+
+    if (hasDiabetesFriendlyStaple) {
+      recommendations.add('✅ Good choice of diabetes-friendly staple food!');
+    }
+
     // Check high GI foods
     final highGIFoods = items.where((item) {
       return (item.food.glycemicIndex ?? 0) > 70;
@@ -147,11 +170,24 @@ class HealthRecommendationService {
       recommendations.add(
           '💡 Reduce rice/bread portions by 30-50% for better glucose control');
 
-      // Specific portion suggestions
+      // Specific portion suggestions - but be smart about diabetes-friendly options
       for (var item in items) {
         if (item.food.category == 'Staples' && item.grams > 150) {
-          portionSuggestions.add(
-              'Reduce ${item.food.name} from ${item.grams.toStringAsFixed(0)}g to ${(item.grams * 0.6).toStringAsFixed(0)}g');
+          final itemNameLower = item.food.name.toLowerCase();
+          final isDiabetesFriendly = diabetesFriendlyStaples
+              .any((friendly) => itemNameLower.contains(friendly));
+
+          if (isDiabetesFriendly) {
+            // For diabetes-friendly options, just suggest moderation, not aggressive reduction
+            if (item.grams > 200) {
+              portionSuggestions.add(
+                  '${item.food.name} is a good choice! Consider moderate portions (around 150-180g) for optimal control');
+            }
+          } else if ((item.food.glycemicIndex ?? 0) > 70) {
+            // For high GI staples (white rice, white bread), suggest reduction
+            portionSuggestions.add(
+                'Reduce ${item.food.name} from ${item.grams.toStringAsFixed(0)}g to ${(item.grams * 0.6).toStringAsFixed(0)}g');
+          }
         }
       }
     } else if (totalCarbs < 30) {

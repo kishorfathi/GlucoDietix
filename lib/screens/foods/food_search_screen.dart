@@ -27,6 +27,7 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
 
   final Map<String, Food> _selectedFoods = {};
   final Map<String, double> _selectedPortions = {};
+  bool _useCupMeasurement = true; // Default to cup/spoon measurements;
 
   @override
   void initState() {
@@ -79,8 +80,8 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
   }
 
   void _toggleFoodSelection(Food food) {
-    final profile = Provider.of<UserProfileProvider>(context, listen: false)
-        .userProfile;
+    final profile =
+        Provider.of<UserProfileProvider>(context, listen: false).userProfile;
 
     setState(() {
       if (_selectedFoods.containsKey(food.id)) {
@@ -110,10 +111,58 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      'Adjust Portions',
-                      style: theme.textTheme.titleLarge
-                          ?.copyWith(fontWeight: FontWeight.w700),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Adjust Portions',
+                            style: theme.textTheme.titleLarge
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                        // Measurement toggle
+                        Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primaryContainer,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _buildMeasurementToggle(
+                                icon: Icons.restaurant,
+                                label: 'Cup/Spoon',
+                                isSelected: _useCupMeasurement,
+                                onTap: () {
+                                  setSheetState(() {
+                                    _useCupMeasurement = true;
+                                  });
+                                  setState(() {
+                                    _useCupMeasurement = true;
+                                  });
+                                },
+                                theme: theme,
+                              ),
+                              const SizedBox(width: 4),
+                              _buildMeasurementToggle(
+                                icon: Icons.scale,
+                                label: 'Grams',
+                                isSelected: !_useCupMeasurement,
+                                onTap: () {
+                                  setSheetState(() {
+                                    _useCupMeasurement = false;
+                                  });
+                                  setState(() {
+                                    _useCupMeasurement = false;
+                                  });
+                                },
+                                theme: theme,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 12),
                     SizedBox(
@@ -124,6 +173,8 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
                           final grams = (_selectedPortions[food.id] ?? 100)
                               .clamp(20.0, 400.0)
                               .toDouble();
+                          final cupSpoon = _gramsToCupSpoon(grams, food);
+
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 10),
                             child: Card(
@@ -145,23 +196,51 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
                                             min: 20,
                                             max: 400,
                                             divisions: 76,
-                                            label: '${grams.toStringAsFixed(0)} g',
+                                            label: _useCupMeasurement
+                                                ? cupSpoon
+                                                : '${grams.toStringAsFixed(0)} g',
                                             onChanged: (value) {
                                               setSheetState(() {
-                                                _selectedPortions[food.id] = value;
+                                                _selectedPortions[food.id] =
+                                                    value;
                                               });
                                               setState(() {
-                                                _selectedPortions[food.id] = value;
+                                                _selectedPortions[food.id] =
+                                                    value;
                                               });
                                             },
                                           ),
                                         ),
                                         SizedBox(
-                                          width: 72,
-                                          child: Text(
-                                            '${grams.toStringAsFixed(0)} g',
-                                            textAlign: TextAlign.right,
-                                            style: theme.textTheme.titleSmall,
+                                          width: 90,
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.end,
+                                            children: [
+                                              Text(
+                                                _useCupMeasurement
+                                                    ? cupSpoon
+                                                    : '${grams.toStringAsFixed(0)} g',
+                                                textAlign: TextAlign.right,
+                                                style: theme
+                                                    .textTheme.titleSmall
+                                                    ?.copyWith(
+                                                  fontWeight: FontWeight.bold,
+                                                  color:
+                                                      theme.colorScheme.primary,
+                                                ),
+                                              ),
+                                              if (_useCupMeasurement)
+                                                Text(
+                                                  '${grams.toStringAsFixed(0)} g',
+                                                  textAlign: TextAlign.right,
+                                                  style: theme
+                                                      .textTheme.bodySmall
+                                                      ?.copyWith(
+                                                    color: Colors.grey,
+                                                  ),
+                                                ),
+                                            ],
                                           ),
                                         ),
                                       ],
@@ -183,7 +262,8 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
                           _addSelectedFoods();
                         },
                         icon: const Icon(Icons.done_all),
-                        label: Text('Add ${_selectedFoods.length} Foods to Meal'),
+                        label:
+                            Text('Add ${_selectedFoods.length} Foods to Meal'),
                       ),
                     ),
                   ],
@@ -193,6 +273,48 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
           },
         );
       },
+    );
+  }
+
+  Widget _buildMeasurementToggle({
+    required IconData icon,
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+    required ThemeData theme,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? theme.colorScheme.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 16,
+              color: isSelected
+                  ? theme.colorScheme.onPrimary
+                  : theme.colorScheme.onPrimaryContainer,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: isSelected
+                    ? theme.colorScheme.onPrimary
+                    : theme.colorScheme.onPrimaryContainer,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -212,6 +334,83 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
     );
 
     Navigator.pop(context);
+  }
+
+  // Convert grams to cup/spoon measurement
+  String _gramsToCupSpoon(double grams, Food food) {
+    final category = food.category.toLowerCase();
+    final name = food.name.toLowerCase();
+
+    // Rice and grains
+    if (category.contains('rice') ||
+        category.contains('grain') ||
+        name.contains('rice') ||
+        name.contains('bread')) {
+      final cups = grams / 150; // 1 cup ≈ 150g cooked rice
+      if (cups < 0.25) {
+        return '${(grams / 37.5).toStringAsFixed(1)} tbsp';
+      } else if (cups < 1) {
+        return '${(cups * 4).toStringAsFixed(1)}/4 cup';
+      } else {
+        return '${cups.toStringAsFixed(1)} cup${cups > 1 ? 's' : ''}';
+      }
+    }
+
+    // Vegetables
+    if (category.contains('vegetable') ||
+        category.contains('salad') ||
+        name.contains('vegetable') ||
+        name.contains('beetroot') ||
+        name.contains('carrot')) {
+      final cups = grams / 150; // 1 cup ≈ 150g vegetables
+      if (cups < 1) {
+        return '${(cups * 4).toStringAsFixed(1)}/4 cup';
+      } else {
+        return '${cups.toStringAsFixed(1)} cup${cups > 1 ? 's' : ''}';
+      }
+    }
+
+    // Dhal/Lentils (liquid curry)
+    if (category.contains('lentil') ||
+        category.contains('dhal') ||
+        name.contains('dhal') ||
+        name.contains('dal') ||
+        name.contains('parippu')) {
+      final cups = grams / 240; // 1 cup ≈ 240g liquid
+      if (cups < 0.25) {
+        return '${(grams / 15).toStringAsFixed(0)} tbsp';
+      } else if (cups < 1) {
+        return '${(cups * 4).toStringAsFixed(1)}/4 cup';
+      } else {
+        return '${cups.toStringAsFixed(1)} cup${cups > 1 ? 's' : ''}';
+      }
+    }
+
+    // Protein/Curry (use tablespoons for smaller amounts)
+    if (category.contains('meat') ||
+        category.contains('fish') ||
+        category.contains('curry') ||
+        name.contains('curry') ||
+        name.contains('chicken') ||
+        name.contains('beef') ||
+        name.contains('fish')) {
+      final tbsp = grams / 15; // 1 tbsp ≈ 15g
+      if (tbsp < 4) {
+        return '${tbsp.toStringAsFixed(1)} tbsp';
+      } else if (tbsp < 16) {
+        return '${(tbsp / 4).toStringAsFixed(1)}/4 cup';
+      } else {
+        return '${(grams / 240).toStringAsFixed(1)} cup';
+      }
+    }
+
+    // Default: use tablespoons
+    final tbsp = grams / 15;
+    if (tbsp < 4) {
+      return '${tbsp.toStringAsFixed(1)} tbsp';
+    } else {
+      return '${(grams / 240).toStringAsFixed(1)} cup';
+    }
   }
 
   @override
@@ -315,7 +514,8 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
                                   onTap: () => _toggleFoodSelection(food),
                                   leading: Checkbox(
                                     value: isSelected,
-                                    onChanged: (_) => _toggleFoodSelection(food),
+                                    onChanged: (_) =>
+                                        _toggleFoodSelection(food),
                                   ),
                                   title: Text(food.name),
                                   subtitle: Text(
@@ -328,7 +528,8 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
                                       if (isSelected)
                                         Text(
                                           '${(_selectedPortions[food.id] ?? 100).toStringAsFixed(0)} g',
-                                          style: theme.textTheme.labelLarge?.copyWith(
+                                          style: theme.textTheme.labelLarge
+                                              ?.copyWith(
                                             color: theme.colorScheme.primary,
                                             fontWeight: FontWeight.w700,
                                           ),
