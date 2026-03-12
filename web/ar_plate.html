@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>AR Plate Viewer</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #000;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      color: #fff;
+    }
+    #camera-feed {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    #plate-overlay {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+    .top-bar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      padding: 18px 16px 12px;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%);
+      z-index: 10;
+    }
+    .top-bar h1 {
+      font-size: 18px;
+      font-weight: 600;
+    }
+    .summary {
+      margin-top: 6px;
+      font-size: 12px;
+      color: rgba(255,255,255,0.8);
+    }
+    .panel {
+      position: absolute;
+      bottom: 16px;
+      left: 16px;
+      right: 16px;
+      background: rgba(0,0,0,0.7);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 14px;
+      padding: 12px;
+      z-index: 10;
+      max-height: 42vh;
+      overflow-y: auto;
+    }
+    .panel-title {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      font-size: 13px;
+    }
+    .item:last-child { border-bottom: none; }
+    .pill {
+      background: rgba(255,255,255,0.12);
+      padding: 4px 8px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .camera-error {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.9);
+      z-index: 20;
+      text-align: center;
+      padding: 20px;
+    }
+    .camera-error button {
+      margin-top: 12px;
+      background: #4c9ffe;
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <video id="camera-feed" autoplay playsinline></video>
+  <canvas id="plate-overlay"></canvas>
+
+  <div class="top-bar">
+    <h1 id="title">Live AR Plate</h1>
+    <div class="summary" id="summary">Point your camera at the plate.</div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Foods in this plate</div>
+    <div id="items"></div>
+  </div>
+
+  <div id="camera-error" class="camera-error" style="display:none;">
+    <div>
+      <div style="font-size:18px; font-weight:600;">Camera access required</div>
+      <div style="margin-top:6px; font-size:13px; color:rgba(255,255,255,0.8);">
+        Please allow camera access to view the AR plate.
+      </div>
+      <button onclick="requestCamera()">Enable Camera</button>
+    </div>
+  </div>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const payloadRaw = urlParams.get('data');
+    let payload = { title: 'Live AR Plate', items: [], segments: [] };
+    try {
+      if (payloadRaw) {
+        payload = JSON.parse(decodeURIComponent(payloadRaw));
+      }
+    } catch (e) {
+      console.error('Invalid payload', e);
+    }
+
+    const titleEl = document.getElementById('title');
+    const summaryEl = document.getElementById('summary');
+    const itemsEl = document.getElementById('items');
+    titleEl.textContent = payload.title || 'Live AR Plate';
+
+    function renderItems() {
+      itemsEl.innerHTML = '';
+      payload.items.forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'item';
+        const left = document.createElement('div');
+        left.textContent = item.name;
+        const right = document.createElement('div');
+        right.className = 'pill';
+        right.textContent = `${Math.round(item.grams)}g (rec ${Math.round(item.recommended)}g)`;
+        row.appendChild(left);
+        row.appendChild(right);
+        itemsEl.appendChild(row);
+      });
+      summaryEl.textContent = `${payload.items.length} items detected`;
+    }
+
+    const video = document.getElementById('camera-feed');
+    const canvas = document.getElementById('plate-overlay');
+    const ctx = canvas.getContext('2d');
+
+    async function startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }
+        });
+        video.srcObject = stream;
+        video.addEventListener('loadedmetadata', () => {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          drawPlate();
+        });
+      } catch (error) {
+        console.error('Camera error:', error);
+        document.getElementById('camera-error').style.display = 'flex';
+      }
+    }
+
+    function requestCamera() {
+      document.getElementById('camera-error').style.display = 'none';
+      startCamera();
+    }
+
+    function getCategoryColor(category) {
+      switch (category) {
+        case 'rice': return 'rgba(255, 200, 90, 0.45)';
+        case 'vegetable': return 'rgba(120, 200, 120, 0.45)';
+        case 'protein': return 'rgba(220, 110, 110, 0.45)';
+        case 'dhal': return 'rgba(255, 210, 120, 0.45)';
+        default: return 'rgba(200, 200, 200, 0.35)';
+      }
+    }
+
+    function drawPlate() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const cx = canvas.width / 2;
+      const cy = canvas.height / 2;
+      const radius = Math.min(canvas.width, canvas.height) * 0.18;
+
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      ctx.stroke();
+
+      let startAngle = -Math.PI / 2;
+      payload.segments.forEach(segment => {
+        const sweep = (segment.portionCount / 4) * Math.PI * 2;
+        ctx.fillStyle = getCategoryColor(segment.category);
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, radius - 4, startAngle, startAngle + sweep);
+        ctx.closePath();
+        ctx.fill();
+        startAngle += sweep;
+      });
+
+      ctx.fillStyle = 'rgba(255,255,255,0.2)';
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius * 0.35, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    renderItems();
+    startCamera();
+
+    window.addEventListener('resize', () => {
+      if (!video.videoWidth || !video.videoHeight) return;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      drawPlate();
+    });
+  </script>
+</body>
+</html>

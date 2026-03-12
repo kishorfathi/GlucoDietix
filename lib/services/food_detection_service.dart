@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:typed_data';
+import 'package:http/http.dart' as http;
 import 'package:google_mlkit_image_labeling/google_mlkit_image_labeling.dart';
 import '../models/food.dart';
 import '../models/user_profile.dart';
@@ -7,6 +9,8 @@ import '../models/user_profile.dart';
 /// Uses on-device ML Kit for food detection (simple and stable)
 class FoodDetectionService {
   ImageLabeler? _labeler;
+  static const String _visionApiKey =
+      String.fromEnvironment('GOOGLE_VISION_API_KEY');
 
   ImageLabeler _getLabeler() {
     _labeler ??= ImageLabeler(
@@ -55,6 +59,94 @@ class FoodDetectionService {
     }
 
     return [];
+  }
+
+  /// Detect foods from an InputImage (live camera stream).
+  Future<List<DetectedFood>> detectFoodsFromInputImage(
+    List<Food> availableFoods,
+    InputImage inputImage,
+  ) async {
+    if (availableFoods.isEmpty) return [];
+
+    try {
+      final labels = await _getLabeler().processImage(inputImage);
+      final signals = labels
+          .map((label) => _LabelSignal(
+                label: label.label,
+                confidence: label.confidence,
+              ))
+          .toList();
+
+      if (signals.isEmpty) return [];
+
+      return _matchSignalsToFoods(
+        signals,
+        availableFoods,
+        detectionMethod: 'ML Kit (Live)',
+      );
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /// Detect foods on web using Google Vision API.
+  Future<List<DetectedFood>> detectFoodsFromWebBytes(
+    List<Food> availableFoods,
+    Uint8List imageBytes,
+  ) async {
+    if (availableFoods.isEmpty) return [];
+    if (_visionApiKey.isEmpty) return [];
+
+    final base64Image = base64Encode(imageBytes);
+    final url =
+        Uri.parse('https://vision.googleapis.com/v1/images:annotate?key=$_visionApiKey');
+    final body = jsonEncode({
+      'requests': [
+        {
+          'image': {'content': base64Image},
+          'features': [
+            {'type': 'LABEL_DETECTION', 'maxResults': 10}
+          ]
+        }
+      ]
+    });
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: body,
+      );
+
+      if (response.statusCode != 200) {
+        return [];
+      }
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final responses = data['responses'] as List<dynamic>? ?? [];
+      if (responses.isEmpty) return [];
+
+      final annotations =
+          responses.first['labelAnnotations'] as List<dynamic>? ?? [];
+      if (annotations.isEmpty) return [];
+
+      final signals = annotations.map((item) {
+        return _LabelSignal(
+          label: item['description'] as String? ?? '',
+          confidence: (item['score'] as num?)?.toDouble() ?? 0,
+        );
+      }).where((signal) => signal.label.isNotEmpty).toList();
+
+      if (signals.isEmpty) return [];
+
+      return _matchSignalsToFoods(
+        signals,
+        availableFoods,
+        detectionMethod: 'Google Vision (Web)',
+      );
+    } catch (e) {
+      return [];
+    }
   }
 
   Future<void> dispose() async {

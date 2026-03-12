@@ -10,7 +10,7 @@ import '../recommendations/meal_recommendations_screen.dart';
 import '../recommendations/exercise_recommendation_screen.dart';
 import '../reminders/reminders_screen.dart';
 import '../reports/progress_tracking_screen.dart';
-import '../meal/meal_builder_screen.dart';
+import '../scan/scan_plate_screen.dart';
 import '../profile/profile_screen.dart';
 
 /// Enhanced Home Dashboard Screen
@@ -170,6 +170,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                       const SizedBox(height: 10),
                     ],
 
+                    // Core feature: Scan Plate
+                    _buildCoreScanPlateCard(),
+                    const SizedBox(height: 14),
+
                     // Glucose readings in horizontal cards
                     if (_recentReadings.isNotEmpty) _buildGlucoseReadingsRow(),
 
@@ -197,15 +201,15 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                     ),
                     const SizedBox(height: 12),
                     _buildFeatureCard(
-                      icon: Icons.camera_alt,
-                      title: 'Food Image Recognition',
+                      icon: Icons.view_in_ar,
+                      title: 'Scan Plate',
                       description:
-                          'Scan your meal to identify foods and get nutrition info',
-                      color: Colors.blue,
+                          'Capture your plate and get live portion + nutrition insights',
+                      color: Colors.teal,
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const MealBuilderScreen(),
+                          builder: (_) => const ScanPlateScreen(),
                         ),
                       ),
                     ),
@@ -626,12 +630,12 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       children: [
         Expanded(
           child: _buildQuickActionButton(
-            Icons.restaurant,
-            'Log Meal',
-            Colors.green,
+            Icons.camera_alt,
+            'Scan Plate',
+            Colors.teal,
             () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const MealBuilderScreen()),
+              MaterialPageRoute(builder: (_) => const ScanPlateScreen()),
             ),
           ),
         ),
@@ -749,6 +753,74 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 ),
               ),
               Icon(Icons.arrow_forward_ios, size: 18, color: Colors.grey[400]),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCoreScanPlateCard() {
+    return Card(
+      elevation: 2,
+      child: InkWell(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ScanPlateScreen()),
+        ),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                const Color(0xFF0B8F87).withOpacity(0.12),
+                const Color(0xFF47BAC1).withOpacity(0.12),
+              ],
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0B8F87).withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.camera_alt_rounded,
+                  color: Color(0xFF0B8F87),
+                  size: 30,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Scan Plate (Core Feature)',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Live scan, portion visualization, and nutrition insights',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_forward_ios, size: 18),
             ],
           ),
         ),
