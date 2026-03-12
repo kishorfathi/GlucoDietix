@@ -1,25 +1,14 @@
-import 'dart:convert';
 import 'dart:typed_data';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_mlkit_image_labeling/google_mlkit_image_labeling.dart';
-import 'package:http/http.dart' as http;
 import '../models/food.dart';
 import '../models/user_profile.dart';
 
-const String _googleVisionApiKey =
-    String.fromEnvironment('GOOGLE_VISION_API_KEY');
-
 /// Food Detection Service
-/// Uses real ML sources:
-/// - Google Vision API (if GOOGLE_VISION_API_KEY is provided)
-/// - On-device ML Kit labels (Android/iOS)
+/// Uses on-device ML Kit for food detection (simple and stable)
 class FoodDetectionService {
   ImageLabeler? _labeler;
 
   ImageLabeler _getLabeler() {
-    if (kIsWeb) {
-      throw UnsupportedError('ML Kit not available on web');
-    }
     _labeler ??= ImageLabeler(
       options: ImageLabelerOptions(confidenceThreshold: 0.35),
     );
@@ -34,42 +23,35 @@ class FoodDetectionService {
   }) async {
     if (availableFoods.isEmpty) return [];
 
-    print('🔑 API Key length: ${_googleVisionApiKey.length}');
-    print(
-        '🔑 API Key (first 20 chars): ${_googleVisionApiKey.isEmpty ? "EMPTY" : _googleVisionApiKey.substring(0, _googleVisionApiKey.length > 20 ? 20 : _googleVisionApiKey.length)}...');
-
-    if (_googleVisionApiKey.isNotEmpty) {
-      print('📡 Calling Google Vision API...');
-      final cloudLabels = await _detectLabelsWithGoogleVision(imageBytes);
-      if (cloudLabels.isNotEmpty) {
-        return _matchSignalsToFoods(
-          cloudLabels,
-          availableFoods,
-          detectionMethod: 'Google Vision API',
-        );
-      }
-    }
-
-    if (!kIsWeb && imagePath != null && imagePath.isNotEmpty) {
-      try {
+    try {
+      if (imagePath != null && imagePath.isNotEmpty) {
+        print('📸 Processing image with ML Kit...');
+        
         final input = InputImage.fromFilePath(imagePath);
         final labels = await _getLabeler().processImage(input);
+        
         final signals = labels
-            .map(
-              (label) => _LabelSignal(
-                label: label.label,
-                confidence: label.confidence,
-              ),
-            )
+            .map((label) => _LabelSignal(
+                  label: label.label,
+                  confidence: label.confidence,
+                ))
             .toList();
+
         if (signals.isNotEmpty) {
+          print('✅ Detected ${signals.length} objects with ML Kit');
+          for (final label in signals) {
+            print('   - ${label.label} (${(label.confidence * 100).toStringAsFixed(1)}%)');
+          }
+
           return _matchSignalsToFoods(
             signals,
             availableFoods,
-            detectionMethod: 'On-device ML (ML Kit)',
+            detectionMethod: 'ML Kit (On-device)',
           );
         }
-      } catch (_) {}
+      }
+    } catch (e) {
+      print('❌ ML Kit detection error: $e');
     }
 
     return [];
@@ -78,72 +60,7 @@ class FoodDetectionService {
   Future<void> dispose() async {
     if (_labeler != null) {
       await _labeler!.close();
-    }
-  }
-
-  Future<List<_LabelSignal>> _detectLabelsWithGoogleVision(
-    Uint8List imageBytes,
-  ) async {
-    if (_googleVisionApiKey.isEmpty || imageBytes.isEmpty) return [];
-
-    try {
-      final uri = Uri.parse(
-        'https://vision.googleapis.com/v1/images:annotate?key=$_googleVisionApiKey',
-      );
-
-      final payload = {
-        'requests': [
-          {
-            'image': {'content': base64Encode(imageBytes)},
-            'features': [
-              {'type': 'LABEL_DETECTION', 'maxResults': 15},
-            ],
-          },
-        ],
-      };
-
-      final response = await http
-          .post(
-            uri,
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode(payload),
-          )
-          .timeout(const Duration(seconds: 12));
-
-      if (response.statusCode != 200) return [];
-
-      final body = jsonDecode(response.body) as Map<String, dynamic>;
-      final responses = body['responses'] as List<dynamic>?;
-      if (responses == null || responses.isEmpty) return [];
-
-      final firstResponse = responses.first as Map<String, dynamic>;
-      final annotations = firstResponse['labelAnnotations'] as List<dynamic>?;
-      if (annotations == null) {
-        print('⚠️ No label annotations in response');
-        return [];
-      }
-
-      final labels = annotations
-          .map((annotation) {
-            final item = annotation as Map<String, dynamic>;
-            final label = (item['description'] as String?)?.trim();
-            if (label == null || label.isEmpty) return null;
-            final score = (item['score'] as num?)?.toDouble() ?? 0.0;
-            return _LabelSignal(label: label, confidence: score);
-          })
-          .whereType<_LabelSignal>()
-          .toList();
-
-      print('✅ Detected ${labels.length} labels from Google Vision:');
-      for (final label in labels) {
-        print(
-            '   - ${label.label} (${(label.confidence * 100).toStringAsFixed(1)}%)');
-      }
-
-      return labels;
-    } catch (e) {
-      print('❌ Google Vision API error: $e');
-      return [];
+      _labeler = null;
     }
   }
 

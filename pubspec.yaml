@@ -22,10 +22,10 @@ dependencies:
   # Live camera preview capture
   camera: ^0.11.0+2
 
-  # Real on-device image labeling (Android/iOS)
+  # On-device image labeling (Android/iOS) - simpler alternative
   google_mlkit_image_labeling: ^0.13.0
-
-  # Optional cloud vision labels (for web or API-backed detection)
+  
+  # For future ML integration
   http: ^1.2.2
   
   # URL Launcher

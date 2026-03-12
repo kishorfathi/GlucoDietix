@@ -9,7 +9,7 @@ This guide shows how to use **Python and Scikit-Learn** for advanced machine lea
 ```
 ┌─────────────────────────────────────────────────────────┐
 │          Flutter App (Data Collection)                  │
-│  - Food detection with Google ML Kit                    │
+│  - Food detection with YOLOv5 (On-device)              │
 │  - Health recommendations (rule-based)                  │
 │  - Glucose tracking, meal logging                       │
 │  - Research assessments (pre/post)                      │
