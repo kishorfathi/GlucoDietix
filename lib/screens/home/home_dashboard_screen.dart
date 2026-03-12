@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/glucose_reading.dart';
 import '../../models/user_profile.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/user_profile_provider.dart';
 import '../../services/glucose_alert_service.dart';
 import '../../services/supabase_service.dart';
@@ -87,12 +88,64 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       appBar: AppBar(
         title: const Text('GlucoDietix'),
         actions: [
-          IconButton(
+          PopupMenuButton<String>(
             icon: const Icon(Icons.person),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ProfileScreen()),
-            ),
+            onSelected: (value) async {
+              if (value == 'profile') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                );
+              } else if (value == 'logout') {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Logout'),
+                    content: const Text('Are you sure you want to logout?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text('Cancel'),
+                      ),
+                      ElevatedButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                        ),
+                        child: const Text('Logout'),
+                      ),
+                    ],
+                  ),
+                );
+                
+                if (confirm == true && mounted) {
+                  final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                  await authProvider.signOut();
+                }
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'profile',
+                child: Row(
+                  children: [
+                    Icon(Icons.person_outline),
+                    SizedBox(width: 8),
+                    Text('Profile'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'logout',
+                child: Row(
+                  children: [
+                    Icon(Icons.logout, color: Colors.red),
+                    SizedBox(width: 8),
+                    Text('Logout', style: TextStyle(color: Colors.red)),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -214,6 +267,22 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       greeting = 'Good Evening';
     }
 
+    // Extract display name from username/email
+    String displayName = 'User';
+    if (profile?.username != null && profile!.username!.isNotEmpty) {
+      final username = profile.username!;
+      // If it's an email, get the part before @
+      if (username.contains('@')) {
+        displayName = username.split('@').first;
+      } else {
+        displayName = username;
+      }
+      // Capitalize first letter
+      if (displayName.isNotEmpty) {
+        displayName = displayName[0].toUpperCase() + displayName.substring(1);
+      }
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -225,7 +294,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           ),
         ),
         Text(
-          profile?.username ?? 'User',
+          displayName,
           style: const TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.bold,

@@ -79,14 +79,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                   fontWeight: FontWeight.bold,
                                 ),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Your ML-powered diabetes meal analyzer',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Colors.grey[600],
-                            ),
-                      ),
                       const SizedBox(height: 48),
                       TextFormField(
                         controller: _emailController,
