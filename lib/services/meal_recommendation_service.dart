@@ -144,10 +144,28 @@ class MealRecommendationService {
     final recommendedFoods = <RecommendedFood>[];
     final categories = _mealCategories[mealType] ?? [];
 
-    // Filter foods for this meal type
+    // Filter foods for this meal type + dietary preferences
     final suitableFoods = availableFoods.where((food) {
       final foodName = food.name.toLowerCase();
-      return categories.any((cat) => foodName.contains(cat.toLowerCase()));
+      if (!categories.any((cat) => foodName.contains(cat.toLowerCase()))) {
+        return false;
+      }
+
+      if (!_matchesDietaryPreference(foodName, profile.dietaryPreference)) {
+        return false;
+      }
+
+      if (profile.lowGIPreference) {
+        final gi = food.glycemicIndex ?? 55;
+        if (gi > 60) return false;
+      }
+
+      if (profile.lowSodiumPreference) {
+        final sodium = food.sodiumMg ?? 0;
+        if (sodium > 500) return false;
+      }
+
+      return true;
     }).toList();
 
     double totalCalories = 0;
@@ -244,6 +262,8 @@ class MealRecommendationService {
 
     if (gi < 55 && profile.diabetes) {
       return 'Low GI - Good for blood sugar control';
+    } else if (profile.lowGIPreference && gi <= 60) {
+      return 'Low GI preference - supports glucose control';
     } else if (protein > 15) {
       return 'High protein - Helps stabilize blood sugar';
     } else if (food.fiber100g > 5) {
@@ -276,6 +296,28 @@ class MealRecommendationService {
       default:
         return '💡 Stay hydrated and maintain regular meal times.';
     }
+  }
+  bool _matchesDietaryPreference(String foodName, String preference) {
+    switch (preference) {
+      case 'vegetarian':
+        return !_containsAny(
+          foodName,
+          ['chicken', 'fish', 'beef', 'pork', 'mutton', 'seafood', 'meat'],
+        );
+      case 'pescatarian':
+        return !_containsAny(
+          foodName,
+          ['chicken', 'beef', 'pork', 'mutton', 'meat'],
+        );
+      case 'halal':
+        return !_containsAny(foodName, ['pork']);
+      default:
+        return true;
+    }
+  }
+
+  bool _containsAny(String value, List<String> keywords) {
+    return keywords.any(value.contains);
   }
 }
 

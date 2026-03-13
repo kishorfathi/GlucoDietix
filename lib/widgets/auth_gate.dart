@@ -37,28 +37,19 @@ class AuthGate extends StatelessWidget {
     final userId = authProvider.user!.id;
     debugPrint('AuthGate: Authenticated userId=$userId');
 
-    // Load user profile if not loaded yet
+    // Load user profile if not loaded yet (non-blocking UI)
     if (!profileProvider.isLoadedFor(userId) && !profileProvider.isLoading) {
       debugPrint('AuthGate: Loading profile for $userId');
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!context.mounted) return;
         context.read<UserProfileProvider>().loadUserProfile(userId);
       });
-      return const Scaffold(
-        body: SafeArea(
-          child: LoadingIndicator(),
-        ),
-      );
     }
 
-    // Show loading while profile is being fetched
+    // While profile is loading, show the dashboard to reduce perceived load time
     if (profileProvider.isLoading) {
-      debugPrint('AuthGate: Showing loading indicator');
-      return const Scaffold(
-        body: SafeArea(
-          child: LoadingIndicator(),
-        ),
-      );
+      debugPrint('AuthGate: Profile loading, showing HomeDashboardScreen');
+      return const HomeDashboardScreen();
     }
 
     // If profile doesn't exist, show profile setup screen

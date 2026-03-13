@@ -28,6 +28,18 @@ class HealthRecommendationService {
     final portionSuggestions = <String>[];
     int healthScore = 100;
 
+    if (profile != null && profile.heightCm > 0) {
+      final heightM = profile.heightCm / 100;
+      final bmi = profile.weightKg / (heightM * heightM);
+      if (bmi >= 27) {
+        recommendations.add(
+            'Consider reducing overall portion sizes to support weight goals');
+      } else if (bmi < 18.5) {
+        recommendations.add(
+            'Add nutrient-dense foods to support healthy weight');
+      }
+    }
+
     // Analyze for diabetes
     if (profile?.diabetes == true || profile?.glucoseRange == 'high') {
       _analyzeDiabetes(

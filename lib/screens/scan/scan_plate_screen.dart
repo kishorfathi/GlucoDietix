@@ -783,10 +783,10 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
                   ),
                 if (_detectedFoods.isNotEmpty) ...[
                   const SizedBox(height: 8),
-                  OutlinedButton.icon(
+                  FilledButton.icon(
                     onPressed: () => _openARPlateViewer(profile),
                     icon: const Icon(Icons.view_in_ar),
-                    label: const Text('View AR Plate (Live)'),
+                    label: const Text('View AR Portion Guide'),
                   ),
                 ],
                 const SizedBox(height: 8),

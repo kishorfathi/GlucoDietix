@@ -10,6 +10,7 @@ import '../recommendations/meal_recommendations_screen.dart';
 import '../recommendations/exercise_recommendation_screen.dart';
 import '../reminders/reminders_screen.dart';
 import '../reports/progress_tracking_screen.dart';
+import '../research/research_hub_screen.dart';
 import '../scan/scan_plate_screen.dart';
 import '../profile/profile_screen.dart';
 
@@ -28,11 +29,23 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   bool _isLoading = true;
   GlucoseAlert? _currentAlert;
   List<GlucoseReading> _recentReadings = [];
+  String? _loadedProfileId;
 
   @override
   void initState() {
     super.initState();
     _loadDashboardData();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final profile =
+        Provider.of<UserProfileProvider>(context, listen: false).userProfile;
+    if (profile != null && profile.id != _loadedProfileId) {
+      _loadedProfileId = profile.id;
+      _loadDashboardData();
+    }
   }
 
   Future<void> _loadDashboardData() async {
@@ -254,6 +267,20 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                         ),
                       ),
                     ),
+                    const SizedBox(height: 12),
+                    _buildFeatureCard(
+                      icon: Icons.science,
+                      title: 'Research Tools',
+                      description:
+                          'Consent, assessments, and data export for the study',
+                      color: Colors.indigo,
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const ResearchHubScreen(),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -310,30 +337,43 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   }
 
   Widget _buildGlucoseAlert(GlucoseAlert alert) {
+    const darkBlue = Color(0xFF113B69);
     return Card(
-      color: Color(alert.color).withOpacity(0.08),
+      color: darkBlue,
       elevation: 1,
       child: InkWell(
         onTap: () {
           showDialog(
             context: context,
             builder: (context) => AlertDialog(
+              backgroundColor: darkBlue,
               title: Row(
                 children: [
-                  Icon(Icons.warning_rounded, color: Color(alert.color)),
+                  const Icon(Icons.warning_rounded, color: Colors.white),
                   const SizedBox(width: 8),
-                  Expanded(child: Text(alert.title)),
+                  Expanded(
+                    child: Text(
+                      alert.title,
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  ),
                 ],
               ),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(alert.message),
+                  Text(
+                    alert.message,
+                    style: const TextStyle(color: Colors.white70),
+                  ),
                   const SizedBox(height: 16),
                   const Text(
                     'Recommended Actions:',
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   ...alert.recommendations.map(
@@ -342,10 +382,18 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('• ', style: TextStyle(fontSize: 16)),
+                          const Text('? ',
+                              style:
+                                  TextStyle(fontSize: 16, color: Colors.white)),
                           Expanded(
-                              child: Text(rec,
-                                  style: const TextStyle(fontSize: 13))),
+                            child: Text(
+                              rec,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Colors.white70,
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -355,7 +403,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('Got it'),
+                  child: const Text('Got it',
+                      style: TextStyle(color: Colors.white)),
                 ),
               ],
             ),
@@ -365,9 +414,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           padding: const EdgeInsets.all(12),
           child: Row(
             children: [
-              Icon(
+              const Icon(
                 Icons.warning_rounded,
-                color: Color(alert.color),
+                color: Colors.white,
                 size: 20,
               ),
               const SizedBox(width: 10),
@@ -377,22 +426,26 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                   children: [
                     Text(
                       alert.title,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.bold,
-                        color: Color(alert.color),
+                        color: Colors.white,
                       ),
                     ),
                     Text(
                       alert.message,
-                      style: TextStyle(fontSize: 11, color: Colors.grey[700]),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Colors.white70,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right, size: 18, color: Colors.grey[400]),
+              const Icon(Icons.chevron_right,
+                  size: 18, color: Colors.white70),
             ],
           ),
         ),
@@ -761,8 +814,11 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   }
 
   Widget _buildCoreScanPlateCard() {
+    const darkBlue = Color(0xFF113B69);
+    const deepTeal = Color(0xFF0B8F87);
     return Card(
-      elevation: 2,
+      elevation: 4,
+      shadowColor: darkBlue.withOpacity(0.25),
       child: InkWell(
         onTap: () => Navigator.push(
           context,
@@ -777,24 +833,35 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                const Color(0xFF0B8F87).withOpacity(0.12),
-                const Color(0xFF47BAC1).withOpacity(0.12),
+                deepTeal.withOpacity(0.18),
+                darkBlue.withOpacity(0.18),
               ],
+            ),
+            border: Border.all(
+              color: darkBlue.withOpacity(0.12),
+              width: 1.2,
             ),
           ),
           child: Row(
             children: [
               Container(
-                width: 56,
-                height: 56,
+                width: 60,
+                height: 60,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0B8F87).withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(14),
+                  color: darkBlue,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: darkBlue.withOpacity(0.25),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
                 child: const Icon(
                   Icons.camera_alt_rounded,
-                  color: Color(0xFF0B8F87),
-                  size: 30,
+                  color: Colors.white,
+                  size: 32,
                 ),
               ),
               const SizedBox(width: 16),
@@ -803,24 +870,45 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Scan Plate (Core Feature)',
+                      'Scan Plate',
                       style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF113B69),
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 6),
                     Text(
-                      'Live scan, portion visualization, and nutrition insights',
+                      'Tap to scan, view portions, and get instant insights',
                       style: TextStyle(
                         fontSize: 13,
-                        color: Colors.grey[700],
+                        color: Colors.grey[800],
                       ),
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.arrow_forward_ios, size: 18),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: deepTeal,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Text(
+                      'Start Scan',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),

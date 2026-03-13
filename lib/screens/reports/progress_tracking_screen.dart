@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/glucose_reading.dart';
+import '../../models/dietary_adherence.dart';
 import '../../models/user_profile.dart';
 import '../../providers/user_profile_provider.dart';
 import '../../services/supabase_service.dart';
@@ -18,6 +19,7 @@ class _ProgressTrackingScreenState extends State<ProgressTrackingScreen> {
   String _selectedPeriod = 'week'; // week, month
   bool _isLoading = true;
   List<GlucoseReading> _glucoseReadings = [];
+  List<DietaryAdherenceRecord> _adherenceRecords = [];
   final _supabaseService = SupabaseService();
 
   @override
@@ -36,8 +38,11 @@ class _ProgressTrackingScreenState extends State<ProgressTrackingScreen> {
         // Load glucose readings for the selected period
         final readings =
             await _supabaseService.getGlucoseReadings(profile.id, limit: 100);
+        final adherence =
+            await _supabaseService.getDietaryAdherenceRecords(profile.id);
         setState(() {
           _glucoseReadings = readings;
+          _adherenceRecords = adherence;
         });
       }
     } catch (e) {
@@ -78,6 +83,12 @@ class _ProgressTrackingScreenState extends State<ProgressTrackingScreen> {
 
                     // Summary Cards
                     _buildSummaryCards(profile),
+                    const SizedBox(height: 24),
+
+                    // Dietary Adherence
+                    _buildSectionHeader('Dietary Adherence'),
+                    const SizedBox(height: 12),
+                    _buildAdherenceSummary(),
                     const SizedBox(height: 24),
 
                     // Glucose Trend Visualization
@@ -224,6 +235,68 @@ class _ProgressTrackingScreenState extends State<ProgressTrackingScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildAdherenceSummary() {
+    final records = _getFilteredAdherenceRecords();
+    if (records.isEmpty) {
+      return const Card(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Text('No adherence data available yet.'),
+        ),
+      );
+    }
+
+    final averageScore = records
+            .map((r) => r.adherenceScore)
+            .reduce((a, b) => a + b) /
+        records.length;
+    final portionRate =
+        records.where((r) => r.followedPortionAdvice).length /
+            records.length *
+            100;
+    final giRate = records.where((r) => r.avoidedHighGIFoods).length /
+        records.length *
+        100;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Average adherence score: ${averageScore.toStringAsFixed(1)}',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            _buildAdherenceBar('Portion compliance', portionRate, Colors.green),
+            const SizedBox(height: 8),
+            _buildAdherenceBar('GI avoidance', giRate, Colors.orange),
+            const SizedBox(height: 8),
+            Text('Meals tracked: ${records.length}'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAdherenceBar(String label, double value, Color color) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('$label (${value.toStringAsFixed(0)}%)',
+            style: const TextStyle(fontSize: 12)),
+        const SizedBox(height: 4),
+        LinearProgressIndicator(
+          value: (value / 100).clamp(0.0, 1.0),
+          backgroundColor: Colors.grey[200],
+          valueColor: AlwaysStoppedAnimation(color),
+          minHeight: 8,
+        ),
+      ],
     );
   }
 
@@ -542,6 +615,17 @@ class _ProgressTrackingScreenState extends State<ProgressTrackingScreen> {
 
     return _glucoseReadings
         .where((reading) => reading.timestamp.isAfter(cutoff))
+        .toList();
+  }
+
+  List<DietaryAdherenceRecord> _getFilteredAdherenceRecords() {
+    final now = DateTime.now();
+    final cutoff = _selectedPeriod == 'week'
+        ? now.subtract(const Duration(days: 7))
+        : now.subtract(const Duration(days: 30));
+
+    return _adherenceRecords
+        .where((record) => record.date.isAfter(cutoff))
         .toList();
   }
 

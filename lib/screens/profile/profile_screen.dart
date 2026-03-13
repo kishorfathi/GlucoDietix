@@ -33,6 +33,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _diabetesType = 'Type 2';
   String _treatment = 'Diet';
   String _updateFrequency = 'weekly';
+  String _dietaryPreference = 'none';
+  bool _lowGIPreference = false;
+  bool _lowSodiumPreference = false;
 
   bool _isSaving = false;
   bool _hasExistingProfile = false;
@@ -84,6 +87,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _diabetesType = profile.diabetesType;
     _treatment = profile.treatment;
     _updateFrequency = profile.updateFrequency;
+    _dietaryPreference = profile.dietaryPreference;
+    _lowGIPreference = profile.lowGIPreference;
+    _lowSodiumPreference = profile.lowSodiumPreference;
 
     _usernameController.text = profile.username ?? '';
     _minController.text = profile.targetGlucoseMin.toStringAsFixed(1);
@@ -168,6 +174,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       diabetesType: _diabetesType,
       treatment: _treatment,
       updateFrequency: _updateFrequency,
+      dietaryPreference: _dietaryPreference,
+      lowGIPreference: _lowGIPreference,
+      lowSodiumPreference: _lowSodiumPreference,
       lastUpdatedAt: DateTime.now(),
     );
 
@@ -441,6 +450,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         onChanged: (value) {
                           if (value == null) return;
                           setState(() => _treatment = value);
+                          _scheduleAutoSave();
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        initialValue: _dietaryPreference,
+                        decoration: const InputDecoration(
+                          labelText: 'Dietary Preference',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                              value: 'none', child: Text('No Preference')),
+                          DropdownMenuItem(
+                              value: 'vegetarian',
+                              child: Text('Vegetarian')),
+                          DropdownMenuItem(
+                              value: 'pescatarian',
+                              child: Text('Pescatarian')),
+                          DropdownMenuItem(value: 'halal', child: Text('Halal')),
+                        ],
+                        onChanged: (value) {
+                          if (value == null) return;
+                          setState(() => _dietaryPreference = value);
+                          _scheduleAutoSave();
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      SwitchListTile(
+                        title: const Text('Prefer low GI foods'),
+                        value: _lowGIPreference,
+                        onChanged: (value) {
+                          setState(() => _lowGIPreference = value);
+                          _scheduleAutoSave();
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      SwitchListTile(
+                        title: const Text('Prefer low sodium foods'),
+                        value: _lowSodiumPreference,
+                        onChanged: (value) {
+                          setState(() => _lowSodiumPreference = value);
                           _scheduleAutoSave();
                         },
                       ),

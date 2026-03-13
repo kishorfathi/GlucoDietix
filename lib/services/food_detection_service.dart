@@ -32,6 +32,19 @@ class FoodDetectionService {
     if (availableFoods.isEmpty) return [];
 
     try {
+      // Try YOLO server first (primary ML path for mobile + desktop)
+      if (imageBytes.isNotEmpty) {
+        final yoloSignals = await _detectWithYoloServer(imageBytes);
+        if (yoloSignals.isNotEmpty) {
+          print('✅ Detected ${yoloSignals.length} objects with YOLO');
+          return _matchSignalsToFoods(
+            yoloSignals,
+            availableFoods,
+            detectionMethod: 'YOLOv8 (Server)',
+          );
+        }
+      }
+
       if (imagePath != null && imagePath.isNotEmpty) {
         print('📸 Processing image with ML Kit...');
 

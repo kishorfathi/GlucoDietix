@@ -172,6 +172,11 @@ class _MealRecommendationsScreenState extends State<MealRecommendationsScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 12),
+            Text(
+              _buildPreferenceLabel(profile),
+              style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+            ),
           ],
         ),
       ),
@@ -205,6 +210,33 @@ class _MealRecommendationsScreenState extends State<MealRecommendationsScreen> {
         ),
       ],
     );
+  }
+
+  String _buildPreferenceLabel(UserProfile profile) {
+    final parts = <String>[];
+    if (profile.dietaryPreference != 'none') {
+      parts.add('Preference: ${_formatPreference(profile.dietaryPreference)}');
+    }
+    if (profile.lowGIPreference) {
+      parts.add('Low GI');
+    }
+    if (profile.lowSodiumPreference) {
+      parts.add('Low sodium');
+    }
+    return parts.isEmpty ? 'Preferences: none' : parts.join(' • ');
+  }
+
+  String _formatPreference(String value) {
+    switch (value) {
+      case 'vegetarian':
+        return 'Vegetarian';
+      case 'pescatarian':
+        return 'Pescatarian';
+      case 'halal':
+        return 'Halal';
+      default:
+        return 'None';
+    }
   }
 
   Widget _buildMealSection(

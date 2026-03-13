@@ -7,7 +7,10 @@ import '../../providers/user_profile_provider.dart';
 import '../../models/meal_item.dart';
 import '../../services/health_recommendation_service.dart';
 import '../../services/plate_method_service.dart';
+import '../../services/research_logging_service.dart';
+import '../../services/supabase_service.dart';
 import '../ar/ar_portion_viewer.dart';
+import '../research/informed_consent_screen.dart';
 
 /// Results Screen
 class ResultsScreen extends StatefulWidget {
@@ -18,6 +21,11 @@ class ResultsScreen extends StatefulWidget {
 }
 
 class _ResultsScreenState extends State<ResultsScreen> {
+  final SupabaseService _supabaseService = SupabaseService();
+  final ResearchLoggingService _researchLoggingService =
+      ResearchLoggingService();
+  bool _isSavingLog = false;
+
   @override
   void initState() {
     super.initState();
@@ -45,6 +53,100 @@ class _ResultsScreenState extends State<ResultsScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _saveMealToResearchLog() async {
+    if (_isSavingLog) return;
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final profileProvider =
+        Provider.of<UserProfileProvider>(context, listen: false);
+    final mealProvider = Provider.of<MealProvider>(context, listen: false);
+
+    final userId = authProvider.user?.id;
+    if (userId == null) return;
+
+    if (mealProvider.mealItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Add foods before saving a research log.'),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSavingLog = true);
+
+    try {
+      final consent = await _supabaseService.getInformedConsent(userId);
+      final isConsented = consent != null &&
+          consent.isFullyConsented &&
+          !consent.hasWithdrawn;
+
+      if (!isConsented) {
+        if (!mounted) return;
+        final goToConsent = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Consent Required'),
+            content: const Text(
+              'Please review and sign the informed consent before '
+              'logging research data.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Review Consent'),
+              ),
+            ],
+          ),
+        );
+
+        if (goToConsent == true && mounted) {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const InformedConsentScreen(),
+            ),
+          );
+        }
+        return;
+      }
+
+      final analysis = HealthRecommendationService().analyzeMeal(
+        mealProvider.mealItems,
+        profileProvider.userProfile,
+      );
+
+      await _researchLoggingService.logMealForResearch(
+        userId: userId,
+        items: mealProvider.mealItems,
+        analysis: analysis,
+        profile: profileProvider.userProfile,
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Meal saved to research log.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to save research log: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isSavingLog = false);
+    }
   }
 
   @override
@@ -474,6 +576,39 @@ class _ResultsScreenState extends State<ResultsScreen> {
               ),
             ),
           ],
+          const SizedBox(height: 16),
+          const Text(
+            'Research Log',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Save this meal to the study log. This records meal history '
+                    'and dietary adherence metrics for analysis.',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed:
+                          _isSavingLog ? null : _saveMealToResearchLog,
+                      icon: const Icon(Icons.save),
+                      label: Text(_isSavingLog
+                          ? 'Saving...'
+                          : 'Save Meal to Research Log'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
           const SizedBox(height: 16),
           const Text(
             'Meal Items',

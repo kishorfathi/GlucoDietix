@@ -4,6 +4,11 @@ import '../models/food.dart';
 import '../models/portion.dart';
 import '../models/user_profile.dart';
 import '../models/glucose_reading.dart';
+import '../models/research_assessment.dart';
+import '../models/dietary_adherence.dart';
+import '../models/informed_consent.dart';
+import '../models/meal_item.dart';
+import '../utils/uuid.dart';
 
 /// Supabase Service
 class SupabaseService {
@@ -317,6 +322,180 @@ class SupabaseService {
       await client.from('glucose_readings').insert(reading.toJson());
     } catch (e) {
       debugPrint('Error saving glucose reading: $e');
+      rethrow;
+    }
+  }
+
+  // Research: Informed Consent
+  Future<InformedConsent?> getInformedConsent(String userId) async {
+    try {
+      final response = await client
+          .from('informed_consent')
+          .select()
+          .eq('user_id', userId)
+          .maybeSingle();
+
+      if (response == null) return null;
+      return InformedConsent.fromJson(response);
+    } catch (e) {
+      debugPrint('Error getting informed consent: $e');
+      return null;
+    }
+  }
+
+  Future<void> upsertInformedConsent(InformedConsent consent) async {
+    try {
+      await client.from('informed_consent').upsert(consent.toJson());
+    } catch (e) {
+      debugPrint('Error saving informed consent: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> withdrawConsent(String userId) async {
+    try {
+      await client.from('informed_consent').update({
+        'withdrawal_date': DateTime.now().toIso8601String(),
+        'agreed_to_participate': false,
+      }).eq('user_id', userId);
+    } catch (e) {
+      debugPrint('Error withdrawing consent: $e');
+      rethrow;
+    }
+  }
+
+  // Research: Assessments
+  Future<List<ResearchAssessment>> getResearchAssessments(
+    String userId, {
+    String? assessmentType,
+  }) async {
+    try {
+      var query =
+          client.from('research_assessments').select().eq('user_id', userId);
+      if (assessmentType != null && assessmentType.isNotEmpty) {
+        query = query.eq('assessment_type', assessmentType);
+      }
+
+      final response = await query.order('completed_at', ascending: false);
+      return (response as List)
+          .map((json) => ResearchAssessment.fromJson(json))
+          .toList();
+    } catch (e) {
+      debugPrint('Error getting research assessments: $e');
+      return [];
+    }
+  }
+
+  Future<void> saveResearchAssessment(ResearchAssessment assessment) async {
+    try {
+      await client.from('research_assessments').insert(assessment.toJson());
+    } catch (e) {
+      debugPrint('Error saving research assessment: $e');
+      rethrow;
+    }
+  }
+
+  // Research: Dietary adherence records
+  Future<List<DietaryAdherenceRecord>> getDietaryAdherenceRecords(
+    String userId, {
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    try {
+      var query =
+          client.from('dietary_adherence_records').select().eq('user_id', userId);
+
+      if (startDate != null) {
+        query = query.gte('date', _formatDate(startDate));
+      }
+
+      if (endDate != null) {
+        query = query.lte('date', _formatDate(endDate));
+      }
+
+      final response = await query.order('date', ascending: false);
+      return (response as List)
+          .map((json) => DietaryAdherenceRecord.fromJson(json))
+          .toList();
+    } catch (e) {
+      debugPrint('Error getting adherence records: $e');
+      return [];
+    }
+  }
+
+  String _formatDate(DateTime date) {
+    final value = date.toLocal();
+    return '${value.year}-${value.month.toString().padLeft(2, '0')}-'
+        '${value.day.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> saveDietaryAdherenceRecord(DietaryAdherenceRecord record) async {
+    try {
+      await client
+          .from('dietary_adherence_records')
+          .insert(record.toJson());
+    } catch (e) {
+      debugPrint('Error saving adherence record: $e');
+      rethrow;
+    }
+  }
+
+  // Research: Meal history (extended)
+  Future<String> saveMealHistory({
+    required String userId,
+    required List<MealItem> items,
+    required int healthScore,
+    required List<String> warnings,
+    required List<String> recommendations,
+    String? mealType,
+    String? photoUrl,
+    List<Map<String, dynamic>>? detectedFoods,
+    double? detectionConfidence,
+  }) async {
+    final mealId = generateUuidV4();
+
+    final foodsPayload = items
+        .map((item) => {
+              'food_id': item.food.id,
+              'name': item.food.name,
+              'grams': item.grams,
+              'calories': item.kcal,
+              'carbs': item.carbs,
+              'protein': item.protein,
+              'fat': item.fat,
+              'fiber': item.fiber,
+              'glycemic_index': item.food.glycemicIndex,
+            })
+        .toList();
+
+    final totalCalories = items.fold<double>(0, (sum, item) => sum + item.kcal);
+    final totalCarbs = items.fold<double>(0, (sum, item) => sum + item.carbs);
+    final totalProtein =
+        items.fold<double>(0, (sum, item) => sum + item.protein);
+    final totalFat = items.fold<double>(0, (sum, item) => sum + item.fat);
+
+    final payload = {
+      'id': mealId,
+      'user_id': userId,
+      'meal_type': mealType,
+      'foods': foodsPayload,
+      'total_calories': totalCalories,
+      'total_carbs': totalCarbs,
+      'total_protein': totalProtein,
+      'total_fat': totalFat,
+      'health_score': healthScore,
+      'warnings': warnings,
+      'recommendations': recommendations,
+      'photo_url': photoUrl,
+      'detected_foods': detectedFoods,
+      'detection_confidence': detectionConfidence,
+    };
+
+    try {
+      await client.from('meal_history').insert(payload);
+      return mealId;
+    } catch (e) {
+      debugPrint('Error saving meal history: $e');
       rethrow;
     }
   }

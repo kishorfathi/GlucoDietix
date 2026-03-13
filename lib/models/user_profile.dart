@@ -13,6 +13,9 @@ class UserProfile {
   final String diabetesType;
   final String treatment;
   final String updateFrequency;
+  final String dietaryPreference;
+  final bool lowGIPreference;
+  final bool lowSodiumPreference;
   final DateTime? lastUpdatedAt;
 
   UserProfile({
@@ -29,6 +32,9 @@ class UserProfile {
     this.diabetesType = 'Type 2',
     this.treatment = 'Diet',
     this.updateFrequency = 'weekly',
+    this.dietaryPreference = 'none',
+    this.lowGIPreference = false,
+    this.lowSodiumPreference = false,
     this.lastUpdatedAt,
   });
 
@@ -48,6 +54,10 @@ class UserProfile {
       diabetesType: (json['diabetes_type'] as String?) ?? 'Type 2',
       treatment: (json['treatment'] as String?) ?? 'Diet',
       updateFrequency: (json['update_frequency'] as String?) ?? 'weekly',
+      dietaryPreference:
+          (json['dietary_preference'] as String?) ?? 'none',
+      lowGIPreference: json['low_gi_preference'] as bool? ?? false,
+      lowSodiumPreference: json['low_sodium_preference'] as bool? ?? false,
       lastUpdatedAt:
           updatedAtRaw is String ? DateTime.tryParse(updatedAtRaw) : null,
     );
@@ -68,6 +78,9 @@ class UserProfile {
       'diabetes_type': diabetesType,
       'treatment': treatment,
       'update_frequency': updateFrequency,
+      'dietary_preference': dietaryPreference,
+      'low_gi_preference': lowGIPreference,
+      'low_sodium_preference': lowSodiumPreference,
       'last_updated_at':
           (lastUpdatedAt ?? DateTime.now()).toUtc().toIso8601String(),
     };
@@ -87,6 +100,9 @@ class UserProfile {
     String? diabetesType,
     String? treatment,
     String? updateFrequency,
+    String? dietaryPreference,
+    bool? lowGIPreference,
+    bool? lowSodiumPreference,
     DateTime? lastUpdatedAt,
   }) {
     return UserProfile(
@@ -103,6 +119,9 @@ class UserProfile {
       diabetesType: diabetesType ?? this.diabetesType,
       treatment: treatment ?? this.treatment,
       updateFrequency: updateFrequency ?? this.updateFrequency,
+      dietaryPreference: dietaryPreference ?? this.dietaryPreference,
+      lowGIPreference: lowGIPreference ?? this.lowGIPreference,
+      lowSodiumPreference: lowSodiumPreference ?? this.lowSodiumPreference,
       lastUpdatedAt: lastUpdatedAt ?? this.lastUpdatedAt,
     );
   }

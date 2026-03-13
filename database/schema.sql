@@ -81,6 +81,10 @@ ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS height_cm NUMERIC DEFAULT 170
 ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS diabetes_type TEXT DEFAULT 'Type 2';
 ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS treatment TEXT DEFAULT 'Diet';
 ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS update_frequency TEXT DEFAULT 'weekly';
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS dietary_preference TEXT DEFAULT 'none';
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS low_gi_preference BOOLEAN DEFAULT FALSE;
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS low_sodium_preference BOOLEAN DEFAULT FALSE;
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
 ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS last_updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
 
 -- 4. Enable Row Level Security (RLS)
