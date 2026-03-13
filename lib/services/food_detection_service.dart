@@ -34,10 +34,10 @@ class FoodDetectionService {
     try {
       if (imagePath != null && imagePath.isNotEmpty) {
         print('📸 Processing image with ML Kit...');
-        
+
         final input = InputImage.fromFilePath(imagePath);
         final labels = await _getLabeler().processImage(input);
-        
+
         final signals = labels
             .map((label) => _LabelSignal(
                   label: label.label,
@@ -48,7 +48,8 @@ class FoodDetectionService {
         if (signals.isNotEmpty) {
           print('✅ Detected ${signals.length} objects with ML Kit');
           for (final label in signals) {
-            print('   - ${label.label} (${(label.confidence * 100).toStringAsFixed(1)}%)');
+            print(
+                '   - ${label.label} (${(label.confidence * 100).toStringAsFixed(1)}%)');
           }
 
           return _matchSignalsToFoods(
@@ -111,8 +112,8 @@ class FoodDetectionService {
     if (_visionApiKey.isEmpty) return [];
 
     final base64Image = base64Encode(imageBytes);
-    final url =
-        Uri.parse('https://vision.googleapis.com/v1/images:annotate?key=$_visionApiKey');
+    final url = Uri.parse(
+        'https://vision.googleapis.com/v1/images:annotate?key=$_visionApiKey');
     final body = jsonEncode({
       'requests': [
         {
@@ -143,12 +144,15 @@ class FoodDetectionService {
           responses.first['labelAnnotations'] as List<dynamic>? ?? [];
       if (annotations.isEmpty) return [];
 
-      final signals = annotations.map((item) {
-        return _LabelSignal(
-          label: item['description'] as String? ?? '',
-          confidence: (item['score'] as num?)?.toDouble() ?? 0,
-        );
-      }).where((signal) => signal.label.isNotEmpty).toList();
+      final signals = annotations
+          .map((item) {
+            return _LabelSignal(
+              label: item['description'] as String? ?? '',
+              confidence: (item['score'] as num?)?.toDouble() ?? 0,
+            );
+          })
+          .where((signal) => signal.label.isNotEmpty)
+          .toList();
 
       if (signals.isEmpty) return [];
 
@@ -183,12 +187,15 @@ class FoodDetectionService {
       final detections = data['detections'] as List<dynamic>? ?? [];
       if (detections.isEmpty) return [];
 
-      return detections.map((item) {
-        return _LabelSignal(
-          label: item['label'] as String? ?? '',
-          confidence: (item['confidence'] as num?)?.toDouble() ?? 0,
-        );
-      }).where((signal) => signal.label.isNotEmpty).toList();
+      return detections
+          .map((item) {
+            return _LabelSignal(
+              label: item['label'] as String? ?? '',
+              confidence: (item['confidence'] as num?)?.toDouble() ?? 0,
+            );
+          })
+          .where((signal) => signal.label.isNotEmpty)
+          .toList();
     } catch (e) {
       return [];
     }
@@ -209,12 +216,18 @@ class FoodDetectionService {
     final candidates = <String, _CandidateScore>{};
 
     for (final label in labels) {
-      final labelText = _normalize(label.label);
-      if (labelText.length < 3) continue;
+      final expandedLabels = _expandSignalLabels(label.label);
+      if (expandedLabels.isEmpty) continue;
 
       for (final food in foods) {
-        final score = _scoreFoodAgainstLabel(food, labelText, label.confidence);
-        if (score <= 0) continue;
+        double score = 0;
+        for (final expandedLabel in expandedLabels) {
+          score +=
+              _scoreFoodAgainstLabel(food, expandedLabel, label.confidence);
+        }
+        if (score <= 0) {
+          continue;
+        }
 
         final existing = candidates[food.id];
         if (existing == null) {
@@ -252,6 +265,22 @@ class FoodDetectionService {
         sourceLabel: candidate.bestLabel,
       );
     }).toList();
+  }
+
+  List<String> _expandSignalLabels(String rawLabel) {
+    final normalized = _normalize(rawLabel);
+    if (normalized.length < 3) {
+      return const [];
+    }
+
+    final expanded = <String>{normalized};
+    for (final entry in _yoloLabelAliases.entries) {
+      if (normalized == entry.key || normalized.contains(entry.key)) {
+        expanded
+            .addAll(entry.value.map(_normalize).where((v) => v.length >= 3));
+      }
+    }
+    return expanded.toList();
   }
 
   double _scoreFoodAgainstLabel(Food food, String label, double confidence) {
@@ -455,6 +484,32 @@ const Map<String, List<String>> _labelIntentToFoodKeywords = {
   'dessert': ['dessert', 'sweet', 'wattalappan', 'kavum'],
   'noodle': ['noodle', 'pasta'],
   'soup': ['soup'],
+};
+
+const Map<String, List<String>> _yoloLabelAliases = {
+  'rice': ['rice', 'white rice', 'red rice', 'steam rice', 'staple'],
+  'rice plate': ['rice', 'plate meal', 'meal'],
+  'chicken curry': ['chicken', 'curry', 'poultry curry'],
+  'fish curry': ['fish', 'seafood', 'curry'],
+  'egg curry': ['egg', 'curry'],
+  'dhal curry': ['dhal', 'lentil', 'curry', 'bean curry'],
+  'parippu': ['dhal', 'lentil curry', 'bean curry'],
+  'potato curry': ['potato', 'vegetable curry', 'curry'],
+  'beetroot curry': ['beetroot', 'vegetable curry', 'curry'],
+  'string hopper': ['string hopper', 'idiyappam', 'noodle', 'staple'],
+  'hopper': ['hopper', 'appa', 'bread'],
+  'egg hopper': ['egg', 'hopper', 'bread'],
+  'roti': ['roti', 'bread', 'flatbread'],
+  'kottu': ['kottu', 'roti', 'mixed dish'],
+  'biriyani': ['biriyani', 'rice', 'chicken rice'],
+  'fried rice': ['fried rice', 'rice'],
+  'noodles': ['noodle', 'pasta'],
+  'mallum': ['greens', 'vegetable', 'salad'],
+  'sambol': ['sambol', 'condiment'],
+  'pol sambol': ['coconut sambol', 'sambol', 'condiment'],
+  'banana': ['banana', 'fruit'],
+  'mango': ['mango', 'fruit'],
+  'papaya': ['papaya', 'fruit'],
 };
 
 /// Detected food with portion estimation.

@@ -1,5 +1,6 @@
 import base64
 import json
+import os
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from io import BytesIO
 
@@ -7,10 +8,20 @@ from PIL import Image
 from ultralytics import YOLO
 
 HOST = "0.0.0.0"
-PORT = 8008
+PORT = int(os.getenv("YOLO_PORT", "8008"))
+MODEL_PATH = os.getenv("YOLO_MODEL_PATH", "yolov8n.pt")
+CONFIDENCE = float(os.getenv("YOLO_CONFIDENCE", "0.2"))
 
-model = YOLO("yolov8n.pt")
+model = YOLO(MODEL_PATH)
 model.fuse()
+
+
+def _resolve_label(names, cls_id: int) -> str:
+    if isinstance(names, dict):
+        return names.get(cls_id, "unknown")
+    if isinstance(names, list) and 0 <= cls_id < len(names):
+        return str(names[cls_id])
+    return "unknown"
 
 
 class YoloHandler(BaseHTTPRequestHandler):
@@ -53,6 +64,9 @@ class YoloHandler(BaseHTTPRequestHandler):
             return
 
         try:
+            # Support raw base64 or data URLs (data:image/jpeg;base64,...)
+            if isinstance(image_b64, str) and "," in image_b64 and image_b64.startswith("data:"):
+                image_b64 = image_b64.split(",", 1)[1]
             image_bytes = base64.b64decode(image_b64)
             image = Image.open(BytesIO(image_bytes)).convert("RGB")
         except Exception:
@@ -61,7 +75,7 @@ class YoloHandler(BaseHTTPRequestHandler):
             return
 
         try:
-            results = model.predict(image, conf=0.25, verbose=False)
+            results = model.predict(image, conf=CONFIDENCE, verbose=False)
             if not results:
                 detections = []
             else:
@@ -73,7 +87,7 @@ class YoloHandler(BaseHTTPRequestHandler):
                     conf = float(box.conf[0])
                     detections.append(
                         {
-                            "label": names.get(cls_id, "unknown"),
+                            "label": _resolve_label(names, cls_id),
                             "confidence": conf,
                         }
                     )
@@ -84,15 +98,37 @@ class YoloHandler(BaseHTTPRequestHandler):
             self._set_headers(200)
             self.wfile.write(json.dumps({"detections": detections}).encode("utf-8"))
         except Exception as exc:
+            print(f"Inference error: {exc}")
             self._set_headers(500)
             self.wfile.write(
                 json.dumps({"error": "Inference failed", "detail": str(exc)}).encode("utf-8")
             )
 
+    def do_GET(self):
+        if self.path != "/health":
+            self._set_headers(404)
+            self.wfile.write(json.dumps({"error": "Not found"}).encode("utf-8"))
+            return
+
+        self._set_headers(200)
+        self.wfile.write(
+            json.dumps(
+                {
+                    "status": "ok",
+                    "model": MODEL_PATH,
+                    "confidence": CONFIDENCE,
+                    "endpoint": "/detect",
+                }
+            ).encode("utf-8")
+        )
+
 
 def run():
     server = HTTPServer((HOST, PORT), YoloHandler)
-    print(f"✅ YOLO server running on http://{HOST}:{PORT}/detect")
+    print(f"YOLO model loaded: {MODEL_PATH}")
+    print(f"Confidence threshold: {CONFIDENCE}")
+    print(f"YOLO server running on http://{HOST}:{PORT}/detect")
+    print(f"Health endpoint: http://{HOST}:{PORT}/health")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
