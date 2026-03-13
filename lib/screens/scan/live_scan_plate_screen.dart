@@ -204,7 +204,7 @@ class _LiveScanPlateScreenState extends State<LiveScanPlateScreen> {
       if (!mounted) return;
       if (detected.isEmpty) {
         _mlNotice ??=
-            'No web ML labels received. Set GOOGLE_VISION_API_KEY with --dart-define.';
+            'No detections yet. Start the local YOLO server (tool/yolo_server.py).';
       }
       _updateDetections(detected);
     } catch (e) {

@@ -11,6 +11,10 @@ class FoodDetectionService {
   ImageLabeler? _labeler;
   static const String _visionApiKey =
       String.fromEnvironment('GOOGLE_VISION_API_KEY');
+  static const String _yoloServerUrl = String.fromEnvironment(
+    'YOLO_SERVER_URL',
+    defaultValue: 'http://localhost:8008/detect',
+  );
 
   ImageLabeler _getLabeler() {
     _labeler ??= ImageLabeler(
@@ -95,6 +99,15 @@ class FoodDetectionService {
     Uint8List imageBytes,
   ) async {
     if (availableFoods.isEmpty) return [];
+    final yoloSignals = await _detectWithYoloServer(imageBytes);
+    if (yoloSignals.isNotEmpty) {
+      return _matchSignalsToFoods(
+        yoloSignals,
+        availableFoods,
+        detectionMethod: 'YOLOv8 (Local)',
+      );
+    }
+
     if (_visionApiKey.isEmpty) return [];
 
     final base64Image = base64Encode(imageBytes);
@@ -144,6 +157,38 @@ class FoodDetectionService {
         availableFoods,
         detectionMethod: 'Google Vision (Web)',
       );
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<List<_LabelSignal>> _detectWithYoloServer(Uint8List imageBytes) async {
+    if (_yoloServerUrl.isEmpty) return [];
+
+    try {
+      final response = await http.post(
+        Uri.parse(_yoloServerUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'image': base64Encode(imageBytes),
+          'topK': 10,
+        }),
+      );
+
+      if (response.statusCode != 200) {
+        return [];
+      }
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final detections = data['detections'] as List<dynamic>? ?? [];
+      if (detections.isEmpty) return [];
+
+      return detections.map((item) {
+        return _LabelSignal(
+          label: item['label'] as String? ?? '',
+          confidence: (item['confidence'] as num?)?.toDouble() ?? 0,
+        );
+      }).where((signal) => signal.label.isNotEmpty).toList();
     } catch (e) {
       return [];
     }
