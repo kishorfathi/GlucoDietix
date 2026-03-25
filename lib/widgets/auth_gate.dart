@@ -5,7 +5,6 @@ import '../providers/user_profile_provider.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/home/home_dashboard_screen.dart';
 import '../screens/profile/profile_screen.dart';
-import '../widgets/loading_indicator.dart';
 
 /// Auth Gate Widget - Routes based on authentication state
 class AuthGate extends StatelessWidget {

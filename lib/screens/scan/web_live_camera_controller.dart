@@ -1,16 +1,16 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:html' as html;
-// ignore: avoid_web_libraries_in_flutter
+import 'dart:js_interop';
+// ignore: deprecated_member_use
 import 'dart:ui_web' as ui_web;
+import 'package:web/web.dart' as web;
 import 'package:flutter/material.dart';
 
 class WebLiveCameraController {
   final String viewId;
-  html.VideoElement? _video;
-  html.MediaStream? _stream;
+  web.HTMLVideoElement? _video;
+  web.MediaStream? _stream;
   bool _isInitialized = false;
   String? _error;
   final Completer<void> _elementReady = Completer<void>();
@@ -27,7 +27,7 @@ class WebLiveCameraController {
     ui_web.platformViewRegistry.registerViewFactory(
       viewId,
       (int viewId) {
-        final video = html.VideoElement()
+        final video = web.HTMLVideoElement()
           ..autoplay = true
           ..muted = true
           ..setAttribute('playsinline', 'true')
@@ -54,19 +54,19 @@ class WebLiveCameraController {
         },
       );
 
-      final mediaDevices = html.window.navigator.mediaDevices;
-      if (mediaDevices == null) {
-        throw Exception('Camera is not supported in this browser.');
-      }
+      final mediaDevices = web.window.navigator.mediaDevices;
 
-      final stream = await mediaDevices.getUserMedia({
-        'video': {
+      final constraints = <String, dynamic>{
+        'video': <String, dynamic>{
           'facingMode': 'environment',
-          'width': {'ideal': 1920},
-          'height': {'ideal': 1080},
+          'width': <String, int>{'ideal': 1920},
+          'height': <String, int>{'ideal': 1080},
         },
         'audio': false,
-      });
+      }.jsify() as web.MediaStreamConstraints;
+
+      final streamPromise = mediaDevices.getUserMedia(constraints);
+      final stream = await streamPromise.toDart;
 
       _stream = stream;
       final video = _video;
@@ -76,15 +76,14 @@ class WebLiveCameraController {
       video.srcObject = stream;
 
       final ready = Completer<void>();
-      late final html.EventListener listener;
-      listener = (event) {
+      void listener(web.Event event) {
         ready.complete();
-        video.removeEventListener('loadedmetadata', listener);
-      };
-      video.addEventListener('loadedmetadata', listener);
+        video.removeEventListener('loadedmetadata', listener.toJS);
+      }
+      video.addEventListener('loadedmetadata', listener.toJS);
 
       try {
-        await video.play();
+        await video.play().toDart;
       } catch (e) {
         throw Exception('Camera playback blocked. Tap to allow camera.');
       }
@@ -111,24 +110,25 @@ class WebLiveCameraController {
       return null;
     }
 
-    final canvas = html.CanvasElement(
-      width: video.videoWidth,
-      height: video.videoHeight,
-    );
-    final ctx = canvas.context2D;
+    final canvas = web.HTMLCanvasElement()
+      ..width = video.videoWidth
+      ..height = video.videoHeight;
+    final ctx = canvas.getContext('2d')! as web.CanvasRenderingContext2D;
     ctx.drawImage(video, 0, 0);
 
-    final dataUrl = canvas.toDataUrl('image/jpeg', 0.85);
+    final dataUrl = canvas.toDataURL('image/jpeg', 0.85.toJS);
     final base64Data = dataUrl.split(',').last;
     final bytes = base64.decode(base64Data);
     return Uint8List.fromList(bytes);
   }
 
   void dispose() {
-    final tracks = _stream?.getTracks();
-    if (tracks != null) {
-      for (final track in tracks) {
-        track.stop();
+    final stream = _stream;
+    if (stream != null) {
+      final tracks = stream.getTracks();
+      final dartTracks = tracks.toDart;
+      for (var i = 0; i < dartTracks.length; i++) {
+        dartTracks[i].stop();
       }
     }
     _stream = null;

@@ -3,10 +3,7 @@ import 'dart:math';
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:html' as html;
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:ui_web' as ui_web;
+import '../../widgets/web_iframe_view/web_iframe_view.dart';
 import '../../models/meal_item.dart';
 import '../../models/user_profile.dart';
 import '../../services/food_detection_service.dart';
@@ -74,21 +71,14 @@ class _ARPlateViewerScreenState extends State<ARPlateViewerScreen> {
   }
 
   void _registerWebARView() {
-    final baseUrl = html.window.location.origin;
     final payload = _buildWebPayload();
     final encoded = Uri.encodeComponent(jsonEncode(payload));
+    final src = 'ar_plate.html?data=$encoded';
 
-    ui_web.platformViewRegistry.registerViewFactory(
-      _webViewId,
-      (int viewId) {
-        final iframe = html.IFrameElement()
-          ..src = '$baseUrl/ar_plate.html?data=$encoded'
-          ..style.border = 'none'
-          ..style.width = '100%'
-          ..style.height = '100%'
-          ..allow = 'camera';
-        return iframe;
-      },
+    WebIFrameView.register(
+      viewType: _webViewId,
+      src: src,
+      allowCamera: true,
     );
   }
 
@@ -208,7 +198,7 @@ class _ARPlateViewerScreenState extends State<ARPlateViewerScreen> {
                   ),
                 ),
               )
-            : HtmlElementView(viewType: _webViewId),
+            : WebIFrameView(viewType: _webViewId, src: ''),
       );
     }
 
@@ -354,7 +344,7 @@ class _ARPlateViewerScreenState extends State<ARPlateViewerScreen> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.65),
+        color: Colors.black.withValues(alpha: 0.65),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.white24),
       ),
@@ -422,7 +412,7 @@ class _ARPlateViewerScreenState extends State<ARPlateViewerScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.12),
+        color: Colors.white.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Text(
@@ -439,7 +429,7 @@ class _ARPlateViewerScreenState extends State<ARPlateViewerScreen> {
   Widget _buildFoodPanel(List<MealItem> items) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.7),
+        color: Colors.black.withValues(alpha: 0.7),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.white24),
       ),
@@ -546,7 +536,7 @@ class _ARPlatePainter extends CustomPainter {
     final radius = size.width / 2;
 
     final rimPaint = Paint()
-      ..color = Colors.white.withOpacity(0.5)
+      ..color = Colors.white.withValues(alpha: 0.5)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 4;
     canvas.drawCircle(center, radius - 2, rimPaint);
@@ -556,7 +546,7 @@ class _ARPlatePainter extends CustomPainter {
       final sweepAngle = (portion.portionCount / 4) * 2 * pi;
       final paint = Paint()
         ..color = (colors[portion.category] ?? Colors.grey.shade200)
-            .withOpacity(0.55)
+            .withValues(alpha: 0.55)
         ..style = PaintingStyle.fill;
 
       canvas.drawArc(
@@ -571,7 +561,7 @@ class _ARPlatePainter extends CustomPainter {
     }
 
     final centerPaint = Paint()
-      ..color = Colors.white.withOpacity(0.2)
+      ..color = Colors.white.withValues(alpha: 0.2)
       ..style = PaintingStyle.fill;
     canvas.drawCircle(center, radius * 0.35, centerPaint);
   }

@@ -1,10 +1,10 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:js_interop';
 import 'package:flutter/material.dart';
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:html' as html;
-// ignore: avoid_web_libraries_in_flutter
+// ignore: deprecated_member_use
 import 'dart:ui_web' as ui_web;
+import 'package:web/web.dart' as web;
 
 class WebCameraCaptureScreen extends StatefulWidget {
   const WebCameraCaptureScreen({super.key});
@@ -15,8 +15,8 @@ class WebCameraCaptureScreen extends StatefulWidget {
 
 class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
   late final String _viewId;
-  html.VideoElement? _videoElement;
-  html.MediaStream? _mediaStream;
+  web.HTMLVideoElement? _videoElement;
+  web.MediaStream? _mediaStream;
   bool _isInitializing = true;
   String? _errorMessage;
 
@@ -38,7 +38,7 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
     ui_web.platformViewRegistry.registerViewFactory(
       _viewId,
       (int viewId) {
-        final video = html.VideoElement()
+        final video = web.HTMLVideoElement()
           ..autoplay = true
           ..muted = true
           ..setAttribute('playsinline', 'true')
@@ -58,19 +58,19 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
     });
 
     try {
-      final mediaDevices = html.window.navigator.mediaDevices;
-      if (mediaDevices == null) {
-        throw Exception('Camera is not supported in this browser.');
-      }
+      final mediaDevices = web.window.navigator.mediaDevices;
 
-      final stream = await mediaDevices.getUserMedia({
-        'video': {
+      final constraints = <String, dynamic>{
+        'video': <String, dynamic>{
           'facingMode': 'environment',
-          'width': {'ideal': 1920},
-          'height': {'ideal': 1080},
+          'width': <String, int>{'ideal': 1920},
+          'height': <String, int>{'ideal': 1080},
         },
         'audio': false,
-      });
+      }.jsify() as web.MediaStreamConstraints;
+
+      final streamPromise = mediaDevices.getUserMedia(constraints);
+      final stream = await streamPromise.toDart;
 
       _mediaStream = stream;
       _videoElement?.srcObject = stream;
@@ -87,10 +87,12 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
   }
 
   void _stopCamera() {
-    final tracks = _mediaStream?.getTracks();
-    if (tracks != null) {
-      for (final track in tracks) {
-        track.stop();
+    final stream = _mediaStream;
+    if (stream != null) {
+      final tracks = stream.getTracks();
+      final dartTracks = tracks.toDart;
+      for (var i = 0; i < dartTracks.length; i++) {
+        dartTracks[i].stop();
       }
     }
     _mediaStream = null;
@@ -108,14 +110,13 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
       return;
     }
 
-    final canvas = html.CanvasElement(
-      width: video.videoWidth,
-      height: video.videoHeight,
-    );
-    final ctx = canvas.context2D;
+    final canvas = web.HTMLCanvasElement()
+      ..width = video.videoWidth
+      ..height = video.videoHeight;
+    final ctx = canvas.getContext('2d')! as web.CanvasRenderingContext2D;
     ctx.drawImage(video, 0, 0);
 
-    final dataUrl = canvas.toDataUrl('image/jpeg', 0.9);
+    final dataUrl = canvas.toDataURL('image/jpeg', 0.9.toJS);
     final base64Data = dataUrl.split(',').last;
     final bytes = base64.decode(base64Data);
 

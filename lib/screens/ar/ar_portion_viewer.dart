@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:html' as html;
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:ui_web' as ui_web;
+import '../../widgets/web_iframe_view/web_iframe_view.dart';
 
 /// AR Portion Viewer Screen
 /// Shows visual references for food portion sizes to help diabetes patients
@@ -50,38 +47,24 @@ class _ARPortionViewerState extends State<ARPortionViewer> {
   }
 
   void _registerWebARViews() {
-    // Get the current window origin to build absolute URLs
-    final baseUrl = html.window.location.origin;
+    // On web, relative URLs resolve against the app origin.
+    final cameraSrc =
+        'ar_camera.html?food=${Uri.encodeComponent(widget.foodName)}&grams=${widget.portionGrams}';
+    final modelSrc =
+        'ar_viewer.html?food=${Uri.encodeComponent(widget.foodName)}&grams=${widget.portionGrams}';
 
     // Register camera AR iframe
-    ui_web.platformViewRegistry.registerViewFactory(
-      _cameraViewId,
-      (int viewId) {
-        final iframe = html.IFrameElement()
-          ..src =
-              '$baseUrl/ar_camera.html?food=${Uri.encodeComponent(widget.foodName)}&grams=${widget.portionGrams}'
-          ..style.border = 'none'
-          ..style.width = '100%'
-          ..style.height = '100%'
-          ..allow = 'camera';
-
-        return iframe;
-      },
+    WebIFrameView.register(
+      viewType: _cameraViewId,
+      src: cameraSrc,
+      allowCamera: true,
     );
 
     // Register 3D model AR iframe
-    ui_web.platformViewRegistry.registerViewFactory(
-      _modelViewId,
-      (int viewId) {
-        final iframe = html.IFrameElement()
-          ..src =
-              '$baseUrl/ar_viewer.html?food=${Uri.encodeComponent(widget.foodName)}&grams=${widget.portionGrams}'
-          ..style.border = 'none'
-          ..style.width = '100%'
-          ..style.height = '100%';
-
-        return iframe;
-      },
+    WebIFrameView.register(
+      viewType: _modelViewId,
+      src: modelSrc,
+      allowCamera: false,
     );
   }
 
@@ -307,7 +290,18 @@ class _ARPortionViewerState extends State<ARPortionViewer> {
       body: Stack(
         children: [
           // Try to load WebAR, with error handling
-          HtmlElementView(viewType: _cameraViewId),
+          WebIFrameView(
+            viewType: _cameraViewId,
+            src: '',
+            allowCamera: true,
+            nonWebFallback: const Center(
+              child: Text(
+                'Camera AR is available on Web only.\nUse Visual Guide on Windows.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ),
           _buildBackButton(),
 
           // Error message overlay (shows if iframe fails to load)
@@ -353,7 +347,18 @@ class _ARPortionViewerState extends State<ARPortionViewer> {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          HtmlElementView(viewType: _modelViewId),
+          WebIFrameView(
+            viewType: _modelViewId,
+            src: '',
+            allowCamera: false,
+            nonWebFallback: const Center(
+              child: Text(
+                '3D AR model is available on Web only.\nUse Visual Guide on Windows.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ),
           _buildBackButton(),
 
           // Error message overlay

@@ -9,13 +9,13 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  
+
   # Supabase
   supabase_flutter: ^2.5.0
-  
+
   # State Management
   provider: ^6.1.2
-  
+
   # Image Picker
   image_picker: ^1.0.7
 
@@ -24,12 +24,15 @@ dependencies:
 
   # On-device image labeling (Android/iOS) - simpler alternative
   google_mlkit_image_labeling: ^0.13.0
-  
+
   # For future ML integration
   http: ^1.2.2
-  
+
   # URL Launcher
   url_launcher: ^6.2.5
+
+  # Web support
+  web: ^1.1.0
 
 dev_dependencies:
   flutter_test:
