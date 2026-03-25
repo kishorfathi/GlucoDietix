@@ -21,11 +21,13 @@ class PortionSelectionScreen extends StatefulWidget {
 
 class _PortionSelectionScreenState extends State<PortionSelectionScreen> {
   final SupabaseService _supabaseService = SupabaseService();
+  final TextEditingController _quantityController = TextEditingController(text: '1');
 
   List<Portion> _portions = [];
   Portion? _selectedPortion;
   bool _isLoading = false;
   String? _errorMessage;
+  double _quantity = 1.0;
 
   @override
   void initState() {
@@ -63,11 +65,19 @@ class _PortionSelectionScreenState extends State<PortionSelectionScreen> {
     if (_selectedPortion != null) {
       final mealProvider = Provider.of<MealProvider>(context, listen: false);
       mealProvider.addFood(widget.food);
-      mealProvider.updateGrams(widget.food.id, _selectedPortion!.grams);
+
+      // Multiply grams by quantity
+      final totalGrams = _selectedPortion!.grams * _quantity;
+      mealProvider.updateGrams(widget.food.id, totalGrams);
+
+      // Create display text based on quantity
+      String portionText = _quantity == 1.0
+          ? _selectedPortion!.label
+          : '${_quantity.toStringAsFixed(_quantity == _quantity.toInt() ? 0 : 1)} × ${_selectedPortion!.label}';
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('${widget.food.name} added to meal'),
+          content: Text('${widget.food.name} ($portionText) added to meal'),
           backgroundColor: Colors.green,
         ),
       );
@@ -81,6 +91,12 @@ class _PortionSelectionScreenState extends State<PortionSelectionScreen> {
         ),
       );
     }
+  }
+
+  @override
+  void dispose() {
+    _quantityController.dispose();
+    super.dispose();
   }
 
   @override
@@ -206,11 +222,11 @@ class _PortionSelectionScreenState extends State<PortionSelectionScreen> {
 
                                 // Calculate nutritional values for this portion
                                 final portionCarbs = (widget.food.carbs100g *
-                                    portion.grams /
+                                    portion.grams * _quantity /
                                     100);
                                 final portionCalories =
                                     (widget.food.energyKcal *
-                                        portion.grams /
+                                        portion.grams * _quantity /
                                         100);
 
                                 return Card(
@@ -260,7 +276,9 @@ class _PortionSelectionScreenState extends State<PortionSelectionScreen> {
                                               children: [
                                                 // Portion label (e.g., "1 cup", "1/2 cup")
                                                 Text(
-                                                  portion.label,
+                                                  _quantity == 1.0
+                                                      ? portion.label
+                                                      : '${_quantity.toStringAsFixed(_quantity == _quantity.toInt() ? 0 : 1)} × ${portion.label}',
                                                   style: TextStyle(
                                                     fontSize: 18,
                                                     fontWeight: FontWeight.bold,
@@ -282,7 +300,7 @@ class _PortionSelectionScreenState extends State<PortionSelectionScreen> {
                                                     ),
                                                     const SizedBox(width: 4),
                                                     Text(
-                                                      '${portion.grams.toStringAsFixed(0)}g',
+                                                      '${(portion.grams * _quantity).toStringAsFixed(0)}g',
                                                       style: TextStyle(
                                                         fontSize: 15,
                                                         fontWeight:
@@ -389,6 +407,174 @@ class _PortionSelectionScreenState extends State<PortionSelectionScreen> {
                                 ),
                               ),
 
+                            // Quantity Selector - shown when a portion is selected
+                            if (_selectedPortion != null) ...[
+                              Container(
+                                padding: const EdgeInsets.all(16),
+                                margin: const EdgeInsets.only(bottom: 12),
+                                decoration: BoxDecoration(
+                                  color: Colors.teal.shade50,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: Colors.teal.shade200),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Icon(Icons.settings,
+                                            color: Colors.teal.shade700, size: 20),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'Adjust Quantity:',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.teal.shade800,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Row(
+                                      children: [
+                                        // Decrease button
+                                        IconButton(
+                                          onPressed: _quantity > 1
+                                              ? () {
+                                                  setState(() {
+                                                    _quantity = (_quantity - 1).clamp(1.0, 10.0);
+                                                    _quantityController.text =
+                                                        _quantity.toStringAsFixed(
+                                                            _quantity == _quantity.toInt()
+                                                                ? 0
+                                                                : 1);
+                                                  });
+                                                }
+                                              : null,
+                                          icon: const Icon(Icons.remove_circle),
+                                          color: Colors.teal.shade700,
+                                          iconSize: 32,
+                                          style: IconButton.styleFrom(
+                                            backgroundColor: Colors.white,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+
+                                        // Quantity input field
+                                        Expanded(
+                                          child: TextField(
+                                            controller: _quantityController,
+                                            keyboardType: const TextInputType.numberWithOptions(
+                                              decimal: true,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                            style: const TextStyle(
+                                              fontSize: 24,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                            decoration: InputDecoration(
+                                              filled: true,
+                                              fillColor: Colors.white,
+                                              border: OutlineInputBorder(
+                                                borderRadius: BorderRadius.circular(12),
+                                                borderSide: BorderSide(
+                                                  color: Colors.teal.shade300,
+                                                  width: 2,
+                                                ),
+                                              ),
+                                              enabledBorder: OutlineInputBorder(
+                                                borderRadius: BorderRadius.circular(12),
+                                                borderSide: BorderSide(
+                                                  color: Colors.teal.shade300,
+                                                  width: 2,
+                                                ),
+                                              ),
+                                              focusedBorder: OutlineInputBorder(
+                                                borderRadius: BorderRadius.circular(12),
+                                                borderSide: BorderSide(
+                                                  color: Colors.teal.shade600,
+                                                  width: 2,
+                                                ),
+                                              ),
+                                              suffixText: '×',
+                                              suffixStyle: TextStyle(
+                                                fontSize: 20,
+                                                color: Colors.grey.shade600,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                              contentPadding:
+                                                  const EdgeInsets.symmetric(
+                                                      vertical: 16, horizontal: 16),
+                                            ),
+                                            onChanged: (value) {
+                                              final newQuantity = double.tryParse(value);
+                                              if (newQuantity != null &&
+                                                  newQuantity > 0 &&
+                                                  newQuantity <= 10) {
+                                                setState(() {
+                                                  _quantity = newQuantity;
+                                                });
+                                              }
+                                            },
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+
+                                        // Increase button
+                                        IconButton(
+                                          onPressed: _quantity < 10.0
+                                              ? () {
+                                                  setState(() {
+                                                    _quantity = (_quantity + 1).clamp(1.0, 10.0);
+                                                    _quantityController.text =
+                                                        _quantity.toStringAsFixed(
+                                                            _quantity == _quantity.toInt()
+                                                                ? 0
+                                                                : 1);
+                                                  });
+                                                }
+                                              : null,
+                                          icon: const Icon(Icons.add_circle),
+                                          color: Colors.teal.shade700,
+                                          iconSize: 32,
+                                          style: IconButton.styleFrom(
+                                            backgroundColor: Colors.white,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    // Quick select buttons
+                                    Wrap(
+                                      spacing: 8,
+                                      children: [1, 2, 3, 4, 5].map((qty) {
+                                        return FilterChip(
+                                          label: Text(
+                                            '$qty',
+                                            style: TextStyle(
+                                              fontWeight: _quantity == qty.toDouble()
+                                                  ? FontWeight.bold
+                                                  : FontWeight.normal,
+                                            ),
+                                          ),
+                                          selected: _quantity == qty.toDouble(),
+                                          onSelected: (selected) {
+                                            setState(() {
+                                              _quantity = qty.toDouble();
+                                              _quantityController.text = '$qty';
+                                            });
+                                          },
+                                          selectedColor: Colors.teal.shade300,
+                                          checkmarkColor: Colors.white,
+                                        );
+                                      }).toList(),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+
                             // AR Viewer Button - ALWAYS VISIBLE
                             SizedBox(
                               width: double.infinity,
@@ -402,7 +588,7 @@ class _PortionSelectionScreenState extends State<PortionSelectionScreen> {
                                                 ARPortionViewer(
                                               foodName: widget.food.name,
                                               portionGrams:
-                                                  _selectedPortion!.grams,
+                                                  _selectedPortion!.grams * _quantity,
                                             ),
                                           ),
                                         );

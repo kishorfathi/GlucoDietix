@@ -121,9 +121,9 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
           ..clear()
           ..addAll(portions);
         _isDetecting = false;
-        if (kIsWeb && detected.isEmpty) {
+        if (detected.isEmpty) {
           _mlNotice =
-              'No web ML labels received. Set GOOGLE_VISION_API_KEY with --dart-define, or use manual multi-select.';
+              'No foods detected. Make sure YOLO server is running at http://localhost:8008, or use manual food selection below.';
         }
       });
     } catch (e) {
@@ -359,7 +359,70 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
     final profile = Provider.of<UserProfileProvider>(context).userProfile;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Scan Plate')),
+      appBar: AppBar(
+        title: const Text('Scan Plate'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.info_outline),
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('How Detection Works'),
+                  content: const SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '🤖 YOLOv8 Object Detection',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                        SizedBox(height: 8),
+                        Text('• Primary AI model for food recognition\n'
+                            '• Runs on local YOLO server (port 8008)\n'
+                            '• Fast and accurate food detection'),
+                        SizedBox(height: 16),
+                        Text(
+                          '📱 Google ML Kit (Fallback)',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                        SizedBox(height: 8),
+                        Text('• On-device detection if YOLO unavailable\n'
+                            '• Works offline\n'
+                            '• Automatically used as backup'),
+                        SizedBox(height: 16),
+                        Text(
+                          '🥽 AR Portion Guidance',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                        SizedBox(height: 8),
+                        Text('• Visual 3D portion sizes\n'
+                            '• WebXR-based AR viewer\n'
+                            '• Helps understand serving sizes'),
+                        SizedBox(height: 16),
+                        Text(
+                          '💡 Tip',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                        SizedBox(height: 8),
+                        Text('Start YOLO server for best detection:\n'
+                            'python yolo_server.py'),
+                      ],
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Got it'),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -382,7 +445,7 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
                       Border.all(color: scheme.primary.withValues(alpha: 0.3)),
                 ),
                 child: const Text(
-                  'Take a live photo, review predicted foods, and adjust portions before analysis.',
+                  'Take a photo and YOLO AI will detect foods automatically. Review predictions and adjust portions before analysis.',
                   textAlign: TextAlign.center,
                 ),
               ),
