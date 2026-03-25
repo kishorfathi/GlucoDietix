@@ -16,7 +16,8 @@ class WebLiveCameraController {
   final Completer<void> _elementReady = Completer<void>();
 
   WebLiveCameraController({String? viewId})
-      : viewId = viewId ?? 'web-live-camera-${DateTime.now().millisecondsSinceEpoch}' {
+      : viewId = viewId ??
+            'web-live-camera-${DateTime.now().millisecondsSinceEpoch}' {
     _registerView();
   }
 
@@ -80,6 +81,7 @@ class WebLiveCameraController {
         ready.complete();
         video.removeEventListener('loadedmetadata', listener.toJS);
       }
+
       video.addEventListener('loadedmetadata', listener.toJS);
 
       try {
