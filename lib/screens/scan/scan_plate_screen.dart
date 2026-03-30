@@ -1,6 +1,5 @@
 import 'dart:math';
 import 'dart:typed_data';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -123,7 +122,7 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
         _isDetecting = false;
         if (detected.isEmpty) {
           _mlNotice =
-              'No foods detected. Make sure YOLO server is running at http://localhost:8008, or use manual food selection below.';
+              'No foods detected. Ensure YOLO is running at http://127.0.0.1:5000/health. Backend started successfully on port 5000.';
         }
       });
     } catch (e) {
@@ -376,16 +375,18 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
                       children: [
                         Text(
                           '🤖 YOLOv8 Object Detection',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 16),
                         ),
                         SizedBox(height: 8),
                         Text('• Primary AI model for food recognition\n'
-                            '• Runs on local YOLO server (port 8008)\n'
+                            '• Runs on local YOLO server (port 5000)\n'
                             '• Fast and accurate food detection'),
                         SizedBox(height: 16),
                         Text(
                           '📱 Google ML Kit (Fallback)',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 16),
                         ),
                         SizedBox(height: 8),
                         Text('• On-device detection if YOLO unavailable\n'
@@ -394,7 +395,8 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
                         SizedBox(height: 16),
                         Text(
                           '🥽 AR Portion Guidance',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 16),
                         ),
                         SizedBox(height: 8),
                         Text('• Visual 3D portion sizes\n'
@@ -403,11 +405,14 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
                         SizedBox(height: 16),
                         Text(
                           '💡 Tip',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 16),
                         ),
                         SizedBox(height: 8),
-                        Text('Start YOLO server for best detection:\n'
-                            'python yolo_server.py'),
+                        Text('Start full stack for best detection:\n'
+                            'powershell -ExecutionPolicy Bypass -File .\\tool\\start_full_stack.ps1\n\n'
+                            'Or YOLO only:\n'
+                            'powershell -ExecutionPolicy Bypass -File .\\tool\\run_yolo_server.ps1'),
                       ],
                     ),
                   ),
@@ -921,8 +926,7 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
         items.fold(0.0, (sum, item) => sum + item.carbs).toDouble();
     final totalProtein =
         items.fold(0.0, (sum, item) => sum + item.protein).toDouble();
-    final totalFat =
-        items.fold(0.0, (sum, item) => sum + item.fat).toDouble();
+    final totalFat = items.fold(0.0, (sum, item) => sum + item.fat).toDouble();
     final totalFiber =
         items.fold(0.0, (sum, item) => sum + item.fiber).toDouble();
     final targetCarbs = _targetCarbsForProfile(profile);
@@ -1046,9 +1050,8 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
                           'Carb target: ${targetCarbs.toStringAsFixed(0)} g',
                           style: theme.textTheme.bodySmall?.copyWith(
                             fontWeight: FontWeight.w600,
-                            color: overCarbLimit
-                                ? Colors.red
-                                : scheme.onSurface,
+                            color:
+                                overCarbLimit ? Colors.red : scheme.onSurface,
                           ),
                         ),
                         const SizedBox(height: 4),

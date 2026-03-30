@@ -1,0 +1,18 @@
+# GlucoDietix Backend Requirements
+# Python 3.9+ required
+# Install with: pip install -r requirements.txt
+
+# Web Framework
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+python-multipart==0.0.6
+
+# YOLO AI Model (Ultralytics)
+ultralytics>=8.0.0
+
+# Image Processing
+Pillow>=10.0.0
+
+# Note: PyTorch will be installed automatically by ultralytics
+# For GPU support, install PyTorch with CUDA separately:
+# pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118

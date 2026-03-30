@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:google_mlkit_image_labeling/google_mlkit_image_labeling.dart';
 import '../models/food.dart';
@@ -13,7 +14,7 @@ class FoodDetectionService {
       String.fromEnvironment('GOOGLE_VISION_API_KEY');
   static const String _yoloServerUrl = String.fromEnvironment(
     'YOLO_SERVER_URL',
-    defaultValue: 'http://localhost:8008/detect',
+    defaultValue: 'http://127.0.0.1:5000/detect',
   );
 
   ImageLabeler _getLabeler() {
@@ -40,40 +41,45 @@ class FoodDetectionService {
           return _matchSignalsToFoods(
             yoloSignals,
             availableFoods,
-            detectionMethod: 'YOLOv8 (Server)',
+            detectionMethod: 'YOLOv11 (Server)',
           );
         }
       }
 
-      if (imagePath != null && imagePath.isNotEmpty) {
-        print('📸 Processing image with ML Kit...');
+      // ML Kit fallback only on mobile platforms (not desktop)
+      if (imagePath != null && imagePath.isNotEmpty && !kIsWeb) {
+        try {
+          print('📸 Processing image with ML Kit (mobile fallback)...');
 
-        final input = InputImage.fromFilePath(imagePath);
-        final labels = await _getLabeler().processImage(input);
+          final input = InputImage.fromFilePath(imagePath);
+          final labels = await _getLabeler().processImage(input);
 
-        final signals = labels
-            .map((label) => _LabelSignal(
-                  label: label.label,
-                  confidence: label.confidence,
-                ))
-            .toList();
+          final signals = labels
+              .map((label) => _LabelSignal(
+                    label: label.label,
+                    confidence: label.confidence,
+                  ))
+              .toList();
 
-        if (signals.isNotEmpty) {
-          print('✅ Detected ${signals.length} objects with ML Kit');
-          for (final label in signals) {
-            print(
-                '   - ${label.label} (${(label.confidence * 100).toStringAsFixed(1)}%)');
+          if (signals.isNotEmpty) {
+            print('✅ Detected ${signals.length} objects with ML Kit');
+            for (final label in signals) {
+              print(
+                  '   - ${label.label} (${(label.confidence * 100).toStringAsFixed(1)}%)');
+            }
+
+            return _matchSignalsToFoods(
+              signals,
+              availableFoods,
+              detectionMethod: 'ML Kit (On-device)',
+            );
           }
-
-          return _matchSignalsToFoods(
-            signals,
-            availableFoods,
-            detectionMethod: 'ML Kit (On-device)',
-          );
+        } catch (e) {
+          print('ℹ️  ML Kit not available on this platform: $e');
         }
       }
     } catch (e) {
-      print('❌ ML Kit detection error: $e');
+      print('❌ Detection error: $e');
     }
 
     return [];
@@ -182,36 +188,55 @@ class FoodDetectionService {
   Future<List<_LabelSignal>> _detectWithYoloServer(Uint8List imageBytes) async {
     if (_yoloServerUrl.isEmpty) return [];
 
-    try {
-      final response = await http.post(
-        Uri.parse(_yoloServerUrl),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'image': base64Encode(imageBytes),
-          'topK': 10,
-        }),
-      );
+    final urlsToTry = _buildYoloUrlsToTry(_yoloServerUrl);
 
-      if (response.statusCode != 200) {
-        return [];
+    for (final url in urlsToTry) {
+      try {
+        final response = await http.post(
+          Uri.parse(url),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'image': base64Encode(imageBytes),
+            'topK': 25,
+          }),
+        );
+
+        if (response.statusCode != 200) {
+          continue;
+        }
+
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final detections = data['detections'] as List<dynamic>? ?? [];
+        if (detections.isEmpty) return [];
+
+        return detections
+            .map((item) {
+              return _LabelSignal(
+                label: item['label'] as String? ?? '',
+                confidence: (item['confidence'] as num?)?.toDouble() ?? 0,
+              );
+            })
+            .where((signal) => signal.label.isNotEmpty)
+            .toList();
+      } catch (_) {
+        continue;
       }
-
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      final detections = data['detections'] as List<dynamic>? ?? [];
-      if (detections.isEmpty) return [];
-
-      return detections
-          .map((item) {
-            return _LabelSignal(
-              label: item['label'] as String? ?? '',
-              confidence: (item['confidence'] as num?)?.toDouble() ?? 0,
-            );
-          })
-          .where((signal) => signal.label.isNotEmpty)
-          .toList();
-    } catch (e) {
-      return [];
     }
+
+    return [];
+  }
+
+  List<String> _buildYoloUrlsToTry(String baseUrl) {
+    final urls = <String>{baseUrl};
+
+    if (baseUrl.contains('localhost')) {
+      urls.add(baseUrl.replaceAll('localhost', '127.0.0.1'));
+    }
+    if (baseUrl.contains('127.0.0.1')) {
+      urls.add(baseUrl.replaceAll('127.0.0.1', 'localhost'));
+    }
+
+    return urls.toList();
   }
 
   Future<void> dispose() async {
@@ -226,9 +251,21 @@ class FoodDetectionService {
     List<Food> foods, {
     required String detectionMethod,
   }) {
+    if (!_hasPlateSpecificEvidence(labels)) {
+      return const [];
+    }
+
     final candidates = <String, _CandidateScore>{};
 
     for (final label in labels) {
+      final normalizedSignal = _normalize(_fixCommonTypos(label.label));
+      if (_ignoredGenericLabels.contains(normalizedSignal)) {
+        continue;
+      }
+      if (label.confidence < 0.2) {
+        continue;
+      }
+
       final expandedLabels = _expandSignalLabels(label.label);
       if (expandedLabels.isEmpty) continue;
 
@@ -268,7 +305,18 @@ class FoodDetectionService {
     final ranked = candidates.values.toList()
       ..sort((a, b) => b.score.compareTo(a.score));
 
-    return ranked.take(6).map((candidate) {
+    final refined = _preferPreparedPlateItems(ranked);
+
+    if (refined.isEmpty) {
+      return const [];
+    }
+
+    final bestScore = refined.first.score;
+    final shortlisted = refined
+        .where((candidate) => candidate.score >= (bestScore * 0.35))
+        .toList();
+
+    return shortlisted.take(6).map((candidate) {
       return DetectedFood(
         food: candidate.food,
         estimatedGrams:
@@ -280,25 +328,230 @@ class FoodDetectionService {
     }).toList();
   }
 
+  bool _hasPlateSpecificEvidence(List<_LabelSignal> labels) {
+    var maxConfidence = 0.0;
+
+    for (final signal in labels) {
+      final normalized = _normalize(_fixCommonTypos(signal.label));
+      if (signal.confidence > maxConfidence) {
+        maxConfidence = signal.confidence;
+      }
+
+      if (_ignoredGenericLabels.contains(normalized)) {
+        continue;
+      }
+
+      final hasFoodSpecificToken = _plateSpecificEvidenceTokens
+          .any((token) => normalized.contains(token));
+      if (hasFoodSpecificToken && signal.confidence >= 0.3) {
+        return true;
+      }
+    }
+
+    // Allow very confident detections even if tokens are uncommon.
+    return maxConfidence >= 0.78;
+  }
+
+  List<_CandidateScore> _preferPreparedPlateItems(List<_CandidateScore> ranked) {
+    if (ranked.length <= 1) return ranked;
+
+    final preparedByToken = <String, _CandidateScore>{};
+    final rawByToken = <String, _CandidateScore>{};
+
+    for (final candidate in ranked) {
+      final tokens = _dishTokens(candidate.food);
+      if (tokens.isEmpty) continue;
+
+      final isPrepared = _isPreparedDish(candidate.food);
+      for (final token in tokens) {
+        final target = isPrepared ? preparedByToken : rawByToken;
+        final existing = target[token];
+        if (existing == null || candidate.score > existing.score) {
+          target[token] = candidate;
+        }
+      }
+    }
+
+    final filtered = <_CandidateScore>[];
+    for (final candidate in ranked) {
+      if (!_isLikelyRawIngredient(candidate.food)) {
+        filtered.add(candidate);
+        continue;
+      }
+
+      final tokens = _dishTokens(candidate.food);
+      var suppress = false;
+      for (final token in tokens) {
+        final prepared = preparedByToken[token];
+        if (prepared == null) continue;
+
+        // If a prepared dish for the same ingredient exists, prefer it.
+        if (prepared.score >= candidate.score * 0.5) {
+          suppress = true;
+          break;
+        }
+      }
+
+      if (!suppress) {
+        filtered.add(candidate);
+      }
+    }
+
+    return filtered;
+  }
+
+  bool _isPreparedDish(Food food) {
+    final text = _foodSearchText(food);
+    final category = food.category.toLowerCase();
+    return category.contains('curr') ||
+        category.contains('mallum') ||
+        category.contains('condiment') ||
+        text.contains(' curry') ||
+        text.contains('mallum') ||
+        text.contains('sambol') ||
+        text.contains('papadam') ||
+        text.contains('papadum') ||
+        text.contains('poppadom');
+  }
+
+  bool _isLikelyRawIngredient(Food food) {
+    final text = _foodSearchText(food);
+    final category = food.category.toLowerCase();
+    if (_isPreparedDish(food)) return false;
+
+    return category.contains('vegetable') ||
+        category.contains('fruit') ||
+        category.contains('greens') ||
+      text.contains(' tomato') ||
+      text.startsWith('tomato ') ||
+      text == 'tomato' ||
+      text.contains(' spinach') ||
+      text.startsWith('spinach ') ||
+      text == 'spinach' ||
+      text.contains(' pumpkin') ||
+      text.startsWith('pumpkin ') ||
+      text == 'pumpkin' ||
+        text.contains(' beans ') ||
+        text.startsWith('beans ');
+  }
+
+  List<String> _dishTokens(Food food) {
+    final text = _foodSearchText(food);
+    final tokens = text.split(' ').where((w) => w.length >= 4).toSet();
+    tokens.removeWhere((w) => _descriptorWords.contains(w));
+    tokens.removeAll(const {
+      'curry',
+      'mallum',
+      'sambol',
+      'boiled',
+      'fried',
+      'thick',
+      'watery',
+      'cooked',
+      'green',
+      'white',
+      'red',
+      'rice',
+    });
+    return tokens.toList();
+  }
+
   List<String> _expandSignalLabels(String rawLabel) {
-    final normalized = _normalize(rawLabel);
+    final normalized = _normalize(_fixCommonTypos(rawLabel));
     if (normalized.length < 3) {
       return const [];
     }
 
     final expanded = <String>{normalized};
+    expanded.addAll(_expandCompositeFoodLabel(normalized));
+
     for (final entry in _yoloLabelAliases.entries) {
       if (normalized == entry.key || normalized.contains(entry.key)) {
         expanded
             .addAll(entry.value.map(_normalize).where((v) => v.length >= 3));
       }
     }
+
+    for (final entry in _specificFoodAliases.entries) {
+      if (normalized == entry.key || normalized.contains(entry.key)) {
+        expanded
+            .addAll(entry.value.map(_normalize).where((v) => v.length >= 3));
+      }
+    }
+
     return expanded.toList();
+  }
+
+  List<String> _expandCompositeFoodLabel(String normalized) {
+    final expanded = <String>{};
+    final words = normalized.split(' ').where((w) => w.length >= 3).toList();
+    if (words.isEmpty) return const [];
+
+    expanded.addAll(words.where((w) => !_descriptorWords.contains(w)));
+
+    final coreWords =
+        words.where((w) => !_descriptorWords.contains(w)).toList();
+    if (coreWords.isNotEmpty) {
+      expanded.add(coreWords.join(' '));
+    }
+
+    if (normalized.contains('rice')) expanded.addAll(['rice', 'boiled rice']);
+    if (normalized.contains('milk rice'))
+      expanded.addAll(['milk rice', 'kiribath']);
+    if (normalized.contains('fried rice')) expanded.add('fried rice');
+    if (normalized.contains('bread')) expanded.addAll(['bread', 'bun']);
+    if (normalized.contains('pizza')) expanded.add('pizza');
+    if (normalized.contains('kottu')) expanded.addAll(['kottu', 'roti']);
+    if (normalized.contains('hopper')) expanded.addAll(['hopper', 'appa']);
+    if (normalized.contains('string hopper')) {
+      expanded.addAll(['string hopper', 'idiyappam']);
+    }
+    if (normalized.contains('noodle')) expanded.addAll(['noodle', 'noodles']);
+    if (normalized.contains('curry')) expanded.add('curry');
+    if (normalized.contains('salad')) expanded.add('salad');
+    if (normalized.contains('boiled')) expanded.add('boiled');
+    if (normalized.contains('tempered')) expanded.add('tempered');
+    if (normalized.contains('fruit')) expanded.add('fruit');
+    if (normalized.contains('banana')) expanded.add('banana');
+    if (normalized.contains('mango')) expanded.add('mango');
+    if (normalized.contains('apple')) expanded.add('apple');
+    if (normalized.contains('milk')) expanded.add('milk');
+    if (normalized.contains('tea')) expanded.add('tea');
+    if (normalized.contains('coffee')) expanded.add('coffee');
+    if (normalized.contains('chicken')) expanded.add('chicken');
+    if (normalized.contains('fish')) expanded.add('fish');
+    if (normalized.contains('egg')) expanded.add('egg');
+
+    return expanded.where((v) => v.length >= 3).toList();
+  }
+
+  String _fixCommonTypos(String value) {
+    final lower = value.toLowerCase();
+    return lower
+        .replaceAll('bolied', 'boiled')
+        .replaceAll('boild', 'boiled')
+        .replaceAll('sambha', 'samba')
+        .replaceAll('parippu', 'dhal')
+        .replaceAll('dal', 'dhal')
+        .replaceAll('pappadam', 'papadam')
+        .replaceAll('papadum', 'papadam')
+        .replaceAll('poppadom', 'papadam')
+        .replaceAll('mange', 'mango')
+        .replaceAll('mozerella', 'mozzarella')
+        .replaceAll('thosai', 'dosa');
   }
 
   double _scoreFoodAgainstLabel(Food food, String label, double confidence) {
     final foodText = _foodSearchText(food);
     double score = 0;
+
+    if (foodText == label) {
+      score += confidence * 3.0;
+    }
+
+    if (foodText.startsWith('$label ') || foodText.endsWith(' $label')) {
+      score += confidence * 1.8;
+    }
 
     if (foodText.contains(label)) {
       score += confidence * 1.5;
@@ -484,6 +737,119 @@ class _CandidateScore {
   });
 }
 
+const Set<String> _descriptorWords = {
+  'boiled',
+  'fried',
+  'white',
+  'red',
+  'yellow',
+  'thick',
+  'watery',
+  'fresh',
+  'instant',
+  'mixed',
+  'liquid',
+  'full',
+  'low',
+  'fat',
+  'non',
+  'flavored',
+  'immature',
+  'plain',
+  'black',
+  'green',
+  'china',
+  'royal',
+  'delicious',
+  'fuji',
+  'first',
+  'second',
+  'st',
+  'nd',
+  'with',
+  'and',
+};
+
+const Map<String, List<String>> _specificFoodAliases = {
+  'rice basmati boiled': ['basmati rice', 'boiled rice', 'rice'],
+  'rice keeri samba boiled': ['keeri samba', 'boiled rice', 'rice'],
+  'rice red kekulu boiled': ['red kekulu rice', 'red rice', 'rice'],
+  'rice samba boiled': ['samba rice', 'boiled rice', 'rice'],
+  'rice white kekulu boiled': ['white kekulu rice', 'white rice', 'rice'],
+  'rice white nadu boiled': ['white nadu rice', 'white rice', 'rice'],
+  'fried rice': ['rice'],
+  'milk rice white': ['milk rice', 'kiribath', 'rice'],
+  'milk rice red': ['milk rice', 'kiribath', 'red rice'],
+  'big mac burger': ['burger', 'bun', 'beef'],
+  'pepperoni pizza': ['pizza', 'pepperoni'],
+  'sausage pizza': ['pizza', 'sausage'],
+  'cheese pizza': ['pizza', 'cheese'],
+  'chapathi': ['roti', 'flatbread'],
+  'paratha': ['roti', 'flatbread'],
+  'thosai': ['dosa', 'flatbread'],
+  'naan': ['flatbread', 'bread'],
+  'coconut roti': ['roti', 'coconut', 'bread'],
+  'vegetable rotti': ['roti', 'vegetable'],
+  'chicken kottu roti': ['kottu', 'roti', 'chicken'],
+  'fried noodles': ['noodles'],
+  'boiled noodles': ['noodles'],
+  'instant noodles': ['noodles'],
+  'string hoppers white': ['string hoppers', 'idiyappam'],
+  'string hoppers red': ['string hoppers', 'idiyappam'],
+  'hoppers': ['hopper', 'appa'],
+  'pasta boiled': ['pasta'],
+  'dhal curry thick': ['dhal curry', 'lentil curry'],
+  'dhal curry': ['dhal curry', 'lentil curry', 'parippu'],
+  'dhal curry watery': ['dhal curry', 'lentil curry'],
+  'dhal curry spinach': ['dhal curry', 'lentil curry', 'spinach'],
+  'beans curry': ['green bean curry', 'bonchi curry', 'bean curry'],
+  'green bean curry': ['beans curry', 'bonchi curry', 'bean curry'],
+  'beetroot curry': ['beetroot curry', 'beet curry', 'vegetable curry'],
+  'beetroot': ['beetroot curry', 'vegetable curry'],
+  'beans': ['green bean curry', 'beans curry', 'vegetable curry'],
+  'green beans': ['green bean curry', 'beans curry', 'vegetable curry'],
+  'lentil': ['dhal curry thick', 'dhal curry', 'parippu'],
+  'dhal': ['dhal curry thick', 'dhal curry', 'parippu'],
+  'dal': ['dhal curry thick', 'dhal curry', 'parippu'],
+  'cracker': ['papadam', 'papadum', 'poppadom'],
+  'fried cracker': ['papadam', 'papadum', 'poppadom'],
+  'papadum': ['papadam', 'papadum', 'poppadom'],
+  'poppadom': ['papadam', 'papadum', 'poppadom'],
+  'mallum': ['gotukola mallum', 'mukunuwenna mallum', 'pol mallum'],
+  'papadam': ['papadam', 'papadum', 'poppadom', 'fried cracker'],
+  'fish ambul thiyal': ['fish curry', 'fish'],
+  'fish white curry': ['fish curry', 'fish'],
+  'canned salmon mackeral curry': ['fish curry', 'salmon', 'mackerel'],
+  'devilled fish': ['fish', 'fried fish'],
+  'deep fried fish': ['fried fish', 'fish'],
+  'chicken curry': ['chicken'],
+  'devilled chicken': ['chicken'],
+  'fried chicken': ['chicken'],
+  'kfc fried chicken': ['fried chicken', 'chicken'],
+  'mcdonalds chicken nuggets': ['chicken nuggets', 'fried chicken'],
+  'egg bulls eye': ['fried egg', 'egg'],
+  'omelet': ['egg'],
+  'full cream liquid milk fresh milk': ['fresh milk', 'full cream milk'],
+  'low fat fresh milk': ['fresh milk', 'low fat milk'],
+  'full cream milk tea': ['milk tea', 'tea'],
+  'non fat milk tea': ['milk tea', 'tea'],
+  'malted drink nestomalt': ['malted drink', 'milk drink'],
+  'mozerella cheese': ['mozzarella cheese', 'cheese'],
+  'paneer cottage cheese': ['paneer', 'cottage cheese'],
+  'coconut milk gravy kiri hodi': ['kiri hodi', 'coconut milk gravy'],
+  'coconut milk 1st milk': ['coconut milk'],
+  'coconut milk 2nd milk': ['coconut milk'],
+  'orange juice': ['juice', 'orange'],
+  'king coconut water': ['coconut water'],
+  'coca cola': ['cola', 'soft drink'],
+  'coke zero': ['cola', 'soft drink'],
+  'sprite': ['soft drink'],
+  'pepsi': ['soft drink'],
+  'plain biscuit': ['biscuit'],
+  'cream biscuit': ['biscuit'],
+  'cracker biscuit': ['biscuit', 'cracker'],
+};
+
 const Map<String, List<String>> _labelIntentToFoodKeywords = {
   'rice': ['rice', 'bhat', 'bath', 'staples'],
   'curry': ['curry', 'curries', 'gravy'],
@@ -506,9 +872,15 @@ const Map<String, List<String>> _yoloLabelAliases = {
   'fish curry': ['fish', 'seafood', 'curry'],
   'egg curry': ['egg', 'curry'],
   'dhal curry': ['dhal', 'lentil', 'curry', 'bean curry'],
-  'parippu': ['dhal', 'lentil curry', 'bean curry'],
+  'dhal curry thick': ['dhal curry', 'lentil curry', 'parippu'],
+  'parippu': ['dhal curry', 'lentil curry', 'bean curry'],
+  'beans curry': ['green bean curry', 'bonchi curry', 'vegetable curry'],
+  'green beans curry': ['green bean curry', 'bonchi curry', 'vegetable curry'],
   'potato curry': ['potato', 'vegetable curry', 'curry'],
   'beetroot curry': ['beetroot', 'vegetable curry', 'curry'],
+  'beetroot': ['beetroot curry', 'vegetable curry', 'curry'],
+  'beans': ['green bean curry', 'beans curry', 'vegetable curry'],
+  'green beans': ['green bean curry', 'beans curry', 'vegetable curry'],
   'string hopper': ['string hopper', 'idiyappam', 'noodle', 'staple'],
   'hopper': ['hopper', 'appa', 'bread'],
   'egg hopper': ['egg', 'hopper', 'bread'],
@@ -518,11 +890,61 @@ const Map<String, List<String>> _yoloLabelAliases = {
   'fried rice': ['fried rice', 'rice'],
   'noodles': ['noodle', 'pasta'],
   'mallum': ['greens', 'vegetable', 'salad'],
+  'leafy greens': ['mallum', 'greens', 'vegetable'],
   'sambol': ['sambol', 'condiment'],
   'pol sambol': ['coconut sambol', 'sambol', 'condiment'],
+  'papadam': ['papadam', 'papadum', 'poppadom', 'cracker'],
+  'papadum': ['papadam', 'papadum', 'poppadom', 'cracker'],
+  'poppadom': ['papadam', 'papadum', 'poppadom', 'cracker'],
   'banana': ['banana', 'fruit'],
   'mango': ['mango', 'fruit'],
   'papaya': ['papaya', 'fruit'],
+};
+
+const Set<String> _ignoredGenericLabels = {
+  'person',
+  'table',
+  'dining table',
+  'chair',
+  'couch',
+  'sofa',
+  'bed',
+  'bowl',
+  'cup',
+  'mug',
+  'spoon',
+  'fork',
+  'knife',
+  'bottle',
+  'cell phone',
+  'remote',
+  'tv',
+  'laptop',
+  'book',
+};
+
+const Set<String> _plateSpecificEvidenceTokens = {
+  'rice',
+  'curry',
+  'dhal',
+  'parippu',
+  'lentil',
+  'beans',
+  'beetroot',
+  'mallum',
+  'sambol',
+  'papadam',
+  'papadum',
+  'poppadom',
+  'hopper',
+  'kottu',
+  'noodle',
+  'fish',
+  'chicken',
+  'egg',
+  'potato',
+  'pumpkin',
+  'vegetable',
 };
 
 /// Detected food with portion estimation.

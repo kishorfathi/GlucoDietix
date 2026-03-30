@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GlucoDietix AR Portion Guidance</title>
+
+    <!-- AR.js and A-Frame -->
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+
+        #info-panel {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+        }
+
+        #info-panel h2 {
+            margin: 0 0 10px 0;
+            color: #2e7d32;
+            font-size: 20px;
+        }
+
+        #food-info {
+            margin-bottom: 10px;
+        }
+
+        .food-item {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 5px;
+        }
+
+        .food-name {
+            font-weight: bold;
+            color: #1b5e20;
+            font-size: 16px;
+        }
+
+        .portion-info {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 8px;
+        }
+
+        .recommended {
+            color: #2e7d32;
+        }
+
+        .current {
+            color: #d32f2f;
+        }
+
+        .legend {
+            display: flex;
+            gap: 20px;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #ddd;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .color-box {
+            width: 20px;
+            height: 20px;
+            border-radius: 3px;
+        }
+
+        .green-box {
+            background-color: #4caf50;
+        }
+
+        .red-box {
+            background-color: #f44336;
+        }
+
+        #instructions {
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            right: 10px;
+            background: rgba(33, 150, 243, 0.9);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <!-- Info Panel -->
+    <div id="info-panel">
+        <h2>🍽️ GlucoDietix Portion Guidance</h2>
+        <div id="food-info">
+            <!-- Will be populated by JavaScript -->
+        </div>
+        <div class="legend">
+            <div class="legend-item">
+                <div class="color-box green-box"></div>
+                <span>Recommended Portion</span>
+            </div>
+            <div class="legend-item">
+                <div class="color-box red-box"></div>
+                <span>Current Portion</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Instructions -->
+    <div id="instructions">
+        📸 Point your camera at the Hiro marker to see portion guidance
+    </div>
+
+    <!-- AR Scene -->
+    <a-scene
+        embedded
+        arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;">
+
+        <!-- Camera -->
+        <a-entity camera></a-entity>
+
+        <!-- Hiro Marker -->
+        <a-marker preset="hiro">
+            <!-- Food portions will be added dynamically -->
+            <a-entity id="portions-container">
+                <!-- Example: Rice portions -->
+                <!-- Green cube (recommended) -->
+                <a-box
+                    id="recommended-1"
+                    position="-1 0.5 0"
+                    color="#4caf50"
+                    depth="1"
+                    height="1"
+                    width="1"
+                    opacity="0.8">
+                    <a-text
+                        value="Recommended\n150g"
+                        align="center"
+                        position="0 1.2 0"
+                        scale="0.5 0.5 0.5"
+                        color="#ffffff">
+                    </a-text>
+                </a-box>
+
+                <!-- Red cube (current) -->
+                <a-box
+                    id="current-1"
+                    position="1 0.75 0"
+                    color="#f44336"
+                    depth="1.5"
+                    height="1.5"
+                    width="1.5"
+                    opacity="0.8">
+                    <a-text
+                        value="Current\n225g"
+                        align="center"
+                        position="0 1.5 0"
+                        scale="0.5 0.5 0.5"
+                        color="#ffffff">
+                    </a-text>
+                </a-box>
+
+                <!-- Food name label -->
+                <a-text
+                    id="food-name-1"
+                    value="Rice"
+                    align="center"
+                    position="0 2.5 0"
+                    scale="0.7 0.7 0.7"
+                    color="#1b5e20">
+                </a-text>
+            </a-entity>
+        </a-marker>
+    </a-scene>
+
+    <script>
+        // Parse URL parameters to get food data
+        function getUrlParams() {
+            const params = new URLSearchParams(window.location.search);
+            return {
+                foods: params.get('foods')?.split(',') || ['Rice', 'Chicken Curry', 'Dhal'],
+                portions: params.get('portions')?.split(',').map(Number) || [150, 200, 100],
+                currentPortions: params.get('current')?.split(',').map(Number) || [225, 250, 120]
+            };
+        }
+
+        const data = getUrlParams();
+
+        // Populate info panel
+        function populateInfoPanel() {
+            const container = document.getElementById('food-info');
+            container.innerHTML = '';
+
+            data.foods.forEach((food, index) => {
+                const recommended = data.portions[index] || 100;
+                const current = data.currentPortions[index] || recommended * 1.5;
+
+                const foodItem = document.createElement('div');
+                foodItem.className = 'food-item';
+                foodItem.innerHTML = `
+                    <div class="food-name">${food}</div>
+                    <div class="portion-info">
+                        <span class="recommended">✓ Recommended: ${recommended}g</span>
+                        <span class="current">! Current: ${current}g</span>
+                    </div>
+                `;
+                container.appendChild(foodItem);
+            });
+        }
+
+        // Create AR portions dynamically
+        function createARPortions() {
+            const container = document.getElementById('portions-container');
+            container.innerHTML = ''; // Clear existing
+
+            const spacing = 3; // Space between food items
+
+            data.foods.forEach((food, index) => {
+                const recommended = data.portions[index] || 100;
+                const current = data.currentPortions[index] || recommended * 1.5;
+
+                // Calculate scale based on portion (normalize to 0.5-2 range)
+                const recommendedScale = Math.min(Math.max(recommended / 150, 0.5), 2);
+                const currentScale = Math.min(Math.max(current / 150, 0.5), 2);
+
+                const zPosition = index * spacing;
+
+                // Recommended portion (green)
+                const recommended3D = document.createElement('a-box');
+                recommended3D.setAttribute('position', `-1 ${recommendedScale / 2} ${zPosition}`);
+                recommended3D.setAttribute('color', '#4caf50');
+                recommended3D.setAttribute('depth', recommendedScale);
+                recommended3D.setAttribute('height', recommendedScale);
+                recommended3D.setAttribute('width', recommendedScale);
+                recommended3D.setAttribute('opacity', '0.8');
+
+                const recText = document.createElement('a-text');
+                recText.setAttribute('value', `Recommended\n${recommended}g`);
+                recText.setAttribute('align', 'center');
+                recText.setAttribute('position', `0 ${recommendedScale + 0.5} 0`);
+                recText.setAttribute('scale', '0.5 0.5 0.5');
+                recText.setAttribute('color', '#ffffff');
+                recommended3D.appendChild(recText);
+
+                // Current portion (red)
+                const current3D = document.createElement('a-box');
+                current3D.setAttribute('position', `1 ${currentScale / 2} ${zPosition}`);
+                current3D.setAttribute('color', current > recommended * 1.2 ? '#f44336' : '#ff9800');
+                current3D.setAttribute('depth', currentScale);
+                current3D.setAttribute('height', currentScale);
+                current3D.setAttribute('width', currentScale);
+                current3D.setAttribute('opacity', '0.8');
+
+                const currText = document.createElement('a-text');
+                currText.setAttribute('value', `Current\n${current}g`);
+                currText.setAttribute('align', 'center');
+                currText.setAttribute('position', `0 ${currentScale + 0.5} 0`);
+                currText.setAttribute('scale', '0.5 0.5 0.5');
+                currText.setAttribute('color', '#ffffff');
+                current3D.appendChild(currText);
+
+                // Food name label
+                const nameLabel = document.createElement('a-text');
+                nameLabel.setAttribute('value', food);
+                nameLabel.setAttribute('align', 'center');
+                nameLabel.setAttribute('position', `0 ${Math.max(recommendedScale, currentScale) + 1.2} ${zPosition}`);
+                nameLabel.setAttribute('scale', '0.7 0.7 0.7');
+                nameLabel.setAttribute('color', '#1b5e20');
+
+                container.appendChild(recommended3D);
+                container.appendChild(current3D);
+                container.appendChild(nameLabel);
+            });
+        }
+
+        // Initialize when page loads
+        window.addEventListener('load', () => {
+            populateInfoPanel();
+            createARPortions();
+
+            // Update instructions when marker is detected
+            const scene = document.querySelector('a-scene');
+            const marker = document.querySelector('a-marker');
+
+            marker.addEventListener('markerFound', () => {
+                document.getElementById('instructions').style.display = 'none';
+            });
+
+            marker.addEventListener('markerLost', () => {
+                document.getElementById('instructions').style.display = 'block';
+            });
+        });
+    </script>
+</body>
+</html>

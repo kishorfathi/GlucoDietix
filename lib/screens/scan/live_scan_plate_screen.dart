@@ -26,7 +26,8 @@ class LiveScanPlateScreen extends StatefulWidget {
 class _LiveScanPlateScreenState extends State<LiveScanPlateScreen> {
   final SupabaseService _supabaseService = SupabaseService();
   final FoodDetectionService _detectionService = FoodDetectionService();
-  final HealthRecommendationService _healthService = HealthRecommendationService();
+  final HealthRecommendationService _healthService =
+      HealthRecommendationService();
 
   final WebLiveCameraController _webController = WebLiveCameraController();
   CameraController? _cameraController;
@@ -73,8 +74,7 @@ class _LiveScanPlateScreenState extends State<LiveScanPlateScreen> {
     try {
       _availableFoods = await _supabaseService.searchFoods();
       if (_availableFoods.isEmpty) {
-        _mlNotice =
-            'Food database is empty. Check your Supabase connection.';
+        _mlNotice = 'Food database is empty. Check your Supabase connection.';
       }
       if (kIsWeb) {
         _webNeedsStart = true;
@@ -204,7 +204,7 @@ class _LiveScanPlateScreenState extends State<LiveScanPlateScreen> {
       if (!mounted) return;
       if (detected.isEmpty) {
         _mlNotice ??=
-            'No detections yet. Start the local YOLO server (tool/yolo_server.py).';
+            'No detections yet. Start YOLO with: powershell -ExecutionPolicy Bypass -File .\\tool\\start_full_stack.ps1';
       }
       _updateDetections(detected);
     } catch (e) {
@@ -485,7 +485,8 @@ class _LiveScanPlateScreenState extends State<LiveScanPlateScreen> {
             const SizedBox(height: 12),
             const Text(
               'Start live camera',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+              style:
+                  TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
@@ -575,7 +576,8 @@ class _LiveScanPlateScreenState extends State<LiveScanPlateScreen> {
   Widget _buildTotalsRow() {
     final totalKcal = _mealItems.fold(0.0, (sum, item) => sum + item.kcal);
     final totalCarbs = _mealItems.fold(0.0, (sum, item) => sum + item.carbs);
-    final totalProtein = _mealItems.fold(0.0, (sum, item) => sum + item.protein);
+    final totalProtein =
+        _mealItems.fold(0.0, (sum, item) => sum + item.protein);
     final totalFat = _mealItems.fold(0.0, (sum, item) => sum + item.fat);
 
     return Wrap(
@@ -654,9 +656,8 @@ class _LiveScanPlateScreenState extends State<LiveScanPlateScreen> {
                   final detected = _detectedFoods[index];
                   final isSelected =
                       _selectedFoodIds.contains(detected.food.id);
-                  final portion =
-                      _selectedPortions[detected.food.id] ??
-                          detected.estimatedGrams;
+                  final portion = _selectedPortions[detected.food.id] ??
+                      detected.estimatedGrams;
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Row(
