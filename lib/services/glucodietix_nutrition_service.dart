@@ -38,7 +38,7 @@ class GlucoDietixNutritionService {
       print('🔍 Querying nutrition for ${foodNames.length} foods');
 
       final response =
-          await _supabase.from('foods').select().in_('name', foodNames);
+          await _supabase.from('foods').select().inFilter('name', foodNames);
 
       if (response.isEmpty) {
         print('⚠️  No nutrition data found');

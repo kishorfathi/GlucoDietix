@@ -76,7 +76,8 @@ class _GlucoDietixHomeScreenState extends State<GlucoDietixHomeScreen> {
 
     try {
       // Step 1: Detect foods using YOLO
-      final foods = await _detectionService.detectFoodsFromFile(_selectedImage!);
+      final foods =
+          await _detectionService.detectFoodsFromFile(_selectedImage!);
 
       setState(() {
         _detectedFoods = foods;
@@ -110,8 +111,7 @@ class _GlucoDietixHomeScreenState extends State<GlucoDietixHomeScreen> {
 
   /// Calculate total calories
   double get _totalCalories {
-    return _nutritionData.fold(
-        0.0, (sum, item) => sum + item.energyKcal);
+    return _nutritionData.fold(0.0, (sum, item) => sum + item.energyKcal);
   }
 
   /// Show message to user
@@ -330,7 +330,8 @@ class _GlucoDietixHomeScreenState extends State<GlucoDietixHomeScreen> {
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const Divider(),
-                      ..._nutritionData.map((food) => _buildNutritionCard(food)),
+                      ..._nutritionData
+                          .map((food) => _buildNutritionCard(food)),
                     ],
                   ),
                 ),

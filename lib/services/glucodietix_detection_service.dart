@@ -56,8 +56,8 @@ class GlucoDietixDetectionService {
 
   /// Detect foods from image bytes
   /// Returns list of detected food names
-  Future<List<String>> detectFoodsFromBytes(Uint8List imageBytes,
-      String filename) async {
+  Future<List<String>> detectFoodsFromBytes(
+      Uint8List imageBytes, String filename) async {
     try {
       print('📤 Sending image bytes to backend...');
 

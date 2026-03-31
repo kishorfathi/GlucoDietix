@@ -36,13 +36,21 @@ class FoodDetectionService {
       // Try YOLO server first (primary ML path for mobile + desktop)
       if (imageBytes.isNotEmpty) {
         final yoloSignals = await _detectWithYoloServer(imageBytes);
+        print('🔍 YOLO returned ${yoloSignals.length} detections');
         if (yoloSignals.isNotEmpty) {
-          print('✅ Detected ${yoloSignals.length} objects with YOLO');
-          return _matchSignalsToFoods(
+          print('✅ Detected ${yoloSignals.length} objects with YOLO:');
+          for (final signal in yoloSignals.take(10)) {
+            print('   - ${signal.label} (${(signal.confidence * 100).toStringAsFixed(1)}%)');
+          }
+          final matched = _matchSignalsToFoods(
             yoloSignals,
             availableFoods,
             detectionMethod: 'YOLOv11 (Server)',
           );
+          print('📋 Matched ${matched.length} foods from YOLO detections');
+          return matched;
+        } else {
+          print('⚠️ YOLO returned 0 detections - image may not contain recognizable food');
         }
       }
 
@@ -262,7 +270,7 @@ class FoodDetectionService {
       if (_ignoredGenericLabels.contains(normalizedSignal)) {
         continue;
       }
-      if (label.confidence < 0.2) {
+      if (label.confidence < 0.001) {
         continue;
       }
 
@@ -313,7 +321,7 @@ class FoodDetectionService {
 
     final bestScore = refined.first.score;
     final shortlisted = refined
-        .where((candidate) => candidate.score >= (bestScore * 0.35))
+        .where((candidate) => candidate.score >= (bestScore * 0.25))
         .toList();
 
     return shortlisted.take(6).map((candidate) {
@@ -321,7 +329,7 @@ class FoodDetectionService {
         food: candidate.food,
         estimatedGrams:
             _estimatePortion(candidate.food, candidate.bestConfidence),
-        confidence: candidate.bestConfidence.clamp(0.35, 0.99).toDouble(),
+        confidence: candidate.bestConfidence.clamp(0.001, 0.99).toDouble(),
         detectionMethod: detectionMethod,
         sourceLabel: candidate.bestLabel,
       );
@@ -330,6 +338,8 @@ class FoodDetectionService {
 
   bool _hasPlateSpecificEvidence(List<_LabelSignal> labels) {
     var maxConfidence = 0.0;
+    var foundFoodToken = false;
+    var foodTokensFound = <String>[];
 
     for (final signal in labels) {
       final normalized = _normalize(_fixCommonTypos(signal.label));
@@ -343,16 +353,31 @@ class FoodDetectionService {
 
       final hasFoodSpecificToken = _plateSpecificEvidenceTokens
           .any((token) => normalized.contains(token));
-      if (hasFoodSpecificToken && signal.confidence >= 0.3) {
+      if (hasFoodSpecificToken && signal.confidence >= 0.001) {
+        foundFoodToken = true;
+        final matchedTokens = _plateSpecificEvidenceTokens
+            .where((token) => normalized.contains(token))
+            .toList();
+        foodTokensFound.addAll(matchedTokens);
+        print('✓ Found food token in "${signal.label}": ${matchedTokens.join(", ")}');
         return true;
       }
     }
 
     // Allow very confident detections even if tokens are uncommon.
-    return maxConfidence >= 0.78;
+    final allowByConfidence = maxConfidence >= 0.01;
+    if (allowByConfidence) {
+      print('✓ Accepting due to high confidence: ${(maxConfidence * 100).toStringAsFixed(1)}%');
+      return true;
+    }
+
+    print('✗ No plate-specific evidence found (max confidence: ${(maxConfidence * 100).toStringAsFixed(1)}%)');
+    print('  Required: food tokens (${_plateSpecificEvidenceTokens.take(5).join(", ")}, ...) with ≥0.1% confidence OR any detection ≥1% confidence');
+    return false;
   }
 
-  List<_CandidateScore> _preferPreparedPlateItems(List<_CandidateScore> ranked) {
+  List<_CandidateScore> _preferPreparedPlateItems(
+      List<_CandidateScore> ranked) {
     if (ranked.length <= 1) return ranked;
 
     final preparedByToken = <String, _CandidateScore>{};
@@ -422,15 +447,15 @@ class FoodDetectionService {
     return category.contains('vegetable') ||
         category.contains('fruit') ||
         category.contains('greens') ||
-      text.contains(' tomato') ||
-      text.startsWith('tomato ') ||
-      text == 'tomato' ||
-      text.contains(' spinach') ||
-      text.startsWith('spinach ') ||
-      text == 'spinach' ||
-      text.contains(' pumpkin') ||
-      text.startsWith('pumpkin ') ||
-      text == 'pumpkin' ||
+        text.contains(' tomato') ||
+        text.startsWith('tomato ') ||
+        text == 'tomato' ||
+        text.contains(' spinach') ||
+        text.startsWith('spinach ') ||
+        text == 'spinach' ||
+        text.contains(' pumpkin') ||
+        text.startsWith('pumpkin ') ||
+        text == 'pumpkin' ||
         text.contains(' beans ') ||
         text.startsWith('beans ');
   }
@@ -496,8 +521,9 @@ class FoodDetectionService {
     }
 
     if (normalized.contains('rice')) expanded.addAll(['rice', 'boiled rice']);
-    if (normalized.contains('milk rice'))
+    if (normalized.contains('milk rice')) {
       expanded.addAll(['milk rice', 'kiribath']);
+    }
     if (normalized.contains('fried rice')) expanded.add('fried rice');
     if (normalized.contains('bread')) expanded.addAll(['bread', 'bun']);
     if (normalized.contains('pizza')) expanded.add('pizza');
