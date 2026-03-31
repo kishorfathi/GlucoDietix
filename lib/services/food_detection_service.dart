@@ -40,7 +40,8 @@ class FoodDetectionService {
         if (yoloSignals.isNotEmpty) {
           print('✅ Detected ${yoloSignals.length} objects with YOLO:');
           for (final signal in yoloSignals.take(10)) {
-            print('   - ${signal.label} (${(signal.confidence * 100).toStringAsFixed(1)}%)');
+            print(
+                '   - ${signal.label} (${(signal.confidence * 100).toStringAsFixed(1)}%)');
           }
           final matched = _matchSignalsToFoods(
             yoloSignals,
@@ -50,7 +51,8 @@ class FoodDetectionService {
           print('📋 Matched ${matched.length} foods from YOLO detections');
           return matched;
         } else {
-          print('⚠️ YOLO returned 0 detections - image may not contain recognizable food');
+          print(
+              '⚠️ YOLO returned 0 detections - image may not contain recognizable food');
         }
       }
 
@@ -359,7 +361,8 @@ class FoodDetectionService {
             .where((token) => normalized.contains(token))
             .toList();
         foodTokensFound.addAll(matchedTokens);
-        print('✓ Found food token in "${signal.label}": ${matchedTokens.join(", ")}');
+        print(
+            '✓ Found food token in "${signal.label}": ${matchedTokens.join(", ")}');
         return true;
       }
     }
@@ -367,12 +370,15 @@ class FoodDetectionService {
     // Allow very confident detections even if tokens are uncommon.
     final allowByConfidence = maxConfidence >= 0.01;
     if (allowByConfidence) {
-      print('✓ Accepting due to high confidence: ${(maxConfidence * 100).toStringAsFixed(1)}%');
+      print(
+          '✓ Accepting due to high confidence: ${(maxConfidence * 100).toStringAsFixed(1)}%');
       return true;
     }
 
-    print('✗ No plate-specific evidence found (max confidence: ${(maxConfidence * 100).toStringAsFixed(1)}%)');
-    print('  Required: food tokens (${_plateSpecificEvidenceTokens.take(5).join(", ")}, ...) with ≥0.1% confidence OR any detection ≥1% confidence');
+    print(
+        '✗ No plate-specific evidence found (max confidence: ${(maxConfidence * 100).toStringAsFixed(1)}%)');
+    print(
+        '  Required: food tokens (${_plateSpecificEvidenceTokens.take(5).join(", ")}, ...) with ≥0.1% confidence OR any detection ≥1% confidence');
     return false;
   }
 
