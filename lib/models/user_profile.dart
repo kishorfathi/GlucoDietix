@@ -54,8 +54,7 @@ class UserProfile {
       diabetesType: (json['diabetes_type'] as String?) ?? 'Type 2',
       treatment: (json['treatment'] as String?) ?? 'Diet',
       updateFrequency: (json['update_frequency'] as String?) ?? 'weekly',
-      dietaryPreference:
-          (json['dietary_preference'] as String?) ?? 'none',
+      dietaryPreference: (json['dietary_preference'] as String?) ?? 'none',
       lowGIPreference: json['low_gi_preference'] as bool? ?? false,
       lowSodiumPreference: json['low_sodium_preference'] as bool? ?? false,
       lastUpdatedAt:

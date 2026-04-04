@@ -21,7 +21,8 @@ class PortionSelectionScreen extends StatefulWidget {
 
 class _PortionSelectionScreenState extends State<PortionSelectionScreen> {
   final SupabaseService _supabaseService = SupabaseService();
-  final TextEditingController _quantityController = TextEditingController(text: '1');
+  final TextEditingController _quantityController =
+      TextEditingController(text: '1');
 
   List<Portion> _portions = [];
   Portion? _selectedPortion;
@@ -222,11 +223,13 @@ class _PortionSelectionScreenState extends State<PortionSelectionScreen> {
 
                                 // Calculate nutritional values for this portion
                                 final portionCarbs = (widget.food.carbs100g *
-                                    portion.grams * _quantity /
+                                    portion.grams *
+                                    _quantity /
                                     100);
                                 final portionCalories =
                                     (widget.food.energyKcal *
-                                        portion.grams * _quantity /
+                                        portion.grams *
+                                        _quantity /
                                         100);
 
                                 return Card(
@@ -415,7 +418,8 @@ class _PortionSelectionScreenState extends State<PortionSelectionScreen> {
                                 decoration: BoxDecoration(
                                   color: Colors.teal.shade50,
                                   borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: Colors.teal.shade200),
+                                  border:
+                                      Border.all(color: Colors.teal.shade200),
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -423,7 +427,8 @@ class _PortionSelectionScreenState extends State<PortionSelectionScreen> {
                                     Row(
                                       children: [
                                         Icon(Icons.settings,
-                                            color: Colors.teal.shade700, size: 20),
+                                            color: Colors.teal.shade700,
+                                            size: 20),
                                         const SizedBox(width: 8),
                                         Text(
                                           'Adjust Quantity:',
@@ -443,10 +448,13 @@ class _PortionSelectionScreenState extends State<PortionSelectionScreen> {
                                           onPressed: _quantity > 1
                                               ? () {
                                                   setState(() {
-                                                    _quantity = (_quantity - 1).clamp(1.0, 10.0);
+                                                    _quantity = (_quantity - 1)
+                                                        .clamp(1.0, 10.0);
                                                     _quantityController.text =
                                                         _quantity.toStringAsFixed(
-                                                            _quantity == _quantity.toInt()
+                                                            _quantity ==
+                                                                    _quantity
+                                                                        .toInt()
                                                                 ? 0
                                                                 : 1);
                                                   });
@@ -465,7 +473,8 @@ class _PortionSelectionScreenState extends State<PortionSelectionScreen> {
                                         Expanded(
                                           child: TextField(
                                             controller: _quantityController,
-                                            keyboardType: const TextInputType.numberWithOptions(
+                                            keyboardType: const TextInputType
+                                                .numberWithOptions(
                                               decimal: true,
                                             ),
                                             textAlign: TextAlign.center,
@@ -477,21 +486,24 @@ class _PortionSelectionScreenState extends State<PortionSelectionScreen> {
                                               filled: true,
                                               fillColor: Colors.white,
                                               border: OutlineInputBorder(
-                                                borderRadius: BorderRadius.circular(12),
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
                                                 borderSide: BorderSide(
                                                   color: Colors.teal.shade300,
                                                   width: 2,
                                                 ),
                                               ),
                                               enabledBorder: OutlineInputBorder(
-                                                borderRadius: BorderRadius.circular(12),
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
                                                 borderSide: BorderSide(
                                                   color: Colors.teal.shade300,
                                                   width: 2,
                                                 ),
                                               ),
                                               focusedBorder: OutlineInputBorder(
-                                                borderRadius: BorderRadius.circular(12),
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
                                                 borderSide: BorderSide(
                                                   color: Colors.teal.shade600,
                                                   width: 2,
@@ -505,10 +517,12 @@ class _PortionSelectionScreenState extends State<PortionSelectionScreen> {
                                               ),
                                               contentPadding:
                                                   const EdgeInsets.symmetric(
-                                                      vertical: 16, horizontal: 16),
+                                                      vertical: 16,
+                                                      horizontal: 16),
                                             ),
                                             onChanged: (value) {
-                                              final newQuantity = double.tryParse(value);
+                                              final newQuantity =
+                                                  double.tryParse(value);
                                               if (newQuantity != null &&
                                                   newQuantity > 0 &&
                                                   newQuantity <= 10) {
@@ -526,10 +540,13 @@ class _PortionSelectionScreenState extends State<PortionSelectionScreen> {
                                           onPressed: _quantity < 10.0
                                               ? () {
                                                   setState(() {
-                                                    _quantity = (_quantity + 1).clamp(1.0, 10.0);
+                                                    _quantity = (_quantity + 1)
+                                                        .clamp(1.0, 10.0);
                                                     _quantityController.text =
                                                         _quantity.toStringAsFixed(
-                                                            _quantity == _quantity.toInt()
+                                                            _quantity ==
+                                                                    _quantity
+                                                                        .toInt()
                                                                 ? 0
                                                                 : 1);
                                                   });
@@ -553,9 +570,10 @@ class _PortionSelectionScreenState extends State<PortionSelectionScreen> {
                                           label: Text(
                                             '$qty',
                                             style: TextStyle(
-                                              fontWeight: _quantity == qty.toDouble()
-                                                  ? FontWeight.bold
-                                                  : FontWeight.normal,
+                                              fontWeight:
+                                                  _quantity == qty.toDouble()
+                                                      ? FontWeight.bold
+                                                      : FontWeight.normal,
                                             ),
                                           ),
                                           selected: _quantity == qty.toDouble(),
@@ -588,7 +606,8 @@ class _PortionSelectionScreenState extends State<PortionSelectionScreen> {
                                                 ARPortionViewer(
                                               foodName: widget.food.name,
                                               portionGrams:
-                                                  _selectedPortion!.grams * _quantity,
+                                                  _selectedPortion!.grams *
+                                                      _quantity,
                                             ),
                                           ),
                                         );

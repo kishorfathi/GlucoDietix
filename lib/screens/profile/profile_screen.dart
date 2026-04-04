@@ -464,12 +464,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           DropdownMenuItem(
                               value: 'none', child: Text('No Preference')),
                           DropdownMenuItem(
-                              value: 'vegetarian',
-                              child: Text('Vegetarian')),
+                              value: 'vegetarian', child: Text('Vegetarian')),
                           DropdownMenuItem(
-                              value: 'pescatarian',
-                              child: Text('Pescatarian')),
-                          DropdownMenuItem(value: 'halal', child: Text('Halal')),
+                              value: 'pescatarian', child: Text('Pescatarian')),
+                          DropdownMenuItem(
+                              value: 'halal', child: Text('Halal')),
                         ],
                         onChanged: (value) {
                           if (value == null) return;

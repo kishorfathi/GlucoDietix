@@ -402,8 +402,10 @@ class SupabaseService {
     DateTime? endDate,
   }) async {
     try {
-      var query =
-          client.from('dietary_adherence_records').select().eq('user_id', userId);
+      var query = client
+          .from('dietary_adherence_records')
+          .select()
+          .eq('user_id', userId);
 
       if (startDate != null) {
         query = query.gte('date', _formatDate(startDate));
@@ -431,9 +433,7 @@ class SupabaseService {
 
   Future<void> saveDietaryAdherenceRecord(DietaryAdherenceRecord record) async {
     try {
-      await client
-          .from('dietary_adherence_records')
-          .insert(record.toJson());
+      await client.from('dietary_adherence_records').insert(record.toJson());
     } catch (e) {
       debugPrint('Error saving adherence record: $e');
       rethrow;

@@ -103,7 +103,8 @@ class _ResearchAssessmentScreenState extends State<ResearchAssessmentScreen> {
               const SizedBox(height: 8),
               TextFormField(
                 controller: _averageGlucoseController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
                 decoration: const InputDecoration(
                   labelText: 'Average glucose (mg/dL)',
                 ),
@@ -111,7 +112,8 @@ class _ResearchAssessmentScreenState extends State<ResearchAssessmentScreen> {
               const SizedBox(height: 8),
               TextFormField(
                 controller: _weightController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
                 decoration: const InputDecoration(
                   labelText: 'Weight (kg)',
                 ),
@@ -119,7 +121,8 @@ class _ResearchAssessmentScreenState extends State<ResearchAssessmentScreen> {
               const SizedBox(height: 8),
               TextFormField(
                 controller: _hba1cController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
                 decoration: const InputDecoration(
                   labelText: 'HbA1c (%)',
                 ),

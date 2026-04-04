@@ -122,7 +122,7 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
         _isDetecting = false;
         if (detected.isEmpty) {
           _mlNotice =
-              'No foods detected. Ensure YOLO is running at http://127.0.0.1:5000/health. Backend started successfully on port 5000.';
+              'No foods detected. Ensure YOLO backend is running at http://127.0.0.1:8000/health';
         }
       });
     } catch (e) {
@@ -380,7 +380,7 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
                         ),
                         SizedBox(height: 8),
                         Text('• Primary AI model for food recognition\n'
-                            '• Runs on local YOLO server (port 5000)\n'
+                            '• Runs on local YOLO server (port 8000)\n'
                             '• Fast and accurate food detection'),
                         SizedBox(height: 16),
                         Text(

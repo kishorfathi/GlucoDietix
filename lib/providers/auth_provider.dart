@@ -5,7 +5,7 @@ import '../services/supabase_service.dart';
 /// Authentication Provider
 class AuthProvider with ChangeNotifier {
   final SupabaseService _supabaseService = SupabaseService();
-  
+
   User? _user;
   bool _isLoading = false;
   String? _errorMessage;

@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:http/http.dart' as http;
 import 'package:google_mlkit_image_labeling/google_mlkit_image_labeling.dart';
 import '../models/food.dart';
@@ -12,10 +12,9 @@ class FoodDetectionService {
   ImageLabeler? _labeler;
   static const String _visionApiKey =
       String.fromEnvironment('GOOGLE_VISION_API_KEY');
-  static const String _yoloServerUrl = String.fromEnvironment(
-    'YOLO_SERVER_URL',
-    defaultValue: 'http://127.0.0.1:5000/detect',
-  );
+
+  // Hardcoded YOLO server URL - works better on Flutter web
+  static const String _yoloServerUrl = 'http://127.0.0.1:8000/detect';
 
   ImageLabeler _getLabeler() {
     _labeler ??= ImageLabeler(
@@ -196,57 +195,81 @@ class FoodDetectionService {
   }
 
   Future<List<_LabelSignal>> _detectWithYoloServer(Uint8List imageBytes) async {
-    if (_yoloServerUrl.isEmpty) return [];
+    if (_yoloServerUrl.isEmpty) {
+      print('⚠️ YOLO server URL is empty');
+      return [];
+    }
 
     final urlsToTry = _buildYoloUrlsToTry(_yoloServerUrl);
+    print('🔗 Attempting YOLO detection at: ${urlsToTry.join(", ")}');
 
     for (final url in urlsToTry) {
       try {
-        final response = await http.post(
-          Uri.parse(url),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'image': base64Encode(imageBytes),
-            'topK': 25,
-          }),
-        );
+        print('📡 Sending request to $url...');
+        final response = await http
+            .post(
+              Uri.parse(url),
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode({
+                'image': base64Encode(imageBytes),
+                'topK': 25,
+              }),
+            )
+            .timeout(const Duration(seconds: 30));
+
+        print('📥 Response status: ${response.statusCode}');
 
         if (response.statusCode != 200) {
+          print('❌ Server returned error: ${response.body}');
           continue;
         }
 
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final detections = data['detections'] as List<dynamic>? ?? [];
-        if (detections.isEmpty) return [];
+
+        print('✅ Server response: ${detections.length} detections');
+
+        if (detections.isEmpty) {
+          print(
+              '⚠️ Server returned 0 detections - model may not recognize the food');
+          return [];
+        }
 
         return detections
             .map((item) {
+              final label = item['label'] as String? ?? '';
+              final confidence = (item['confidence'] as num?)?.toDouble() ?? 0;
+              print('   📍 $label (${(confidence * 100).toStringAsFixed(1)}%)');
               return _LabelSignal(
-                label: item['label'] as String? ?? '',
-                confidence: (item['confidence'] as num?)?.toDouble() ?? 0,
+                label: label,
+                confidence: confidence,
               );
             })
             .where((signal) => signal.label.isNotEmpty)
             .toList();
-      } catch (_) {
+      } catch (e) {
+        print('❌ Connection failed to $url: $e');
         continue;
       }
     }
 
+    print('❌ All YOLO server connections failed. Is the backend running?');
+    print('   Start it with: python backend/main.py');
     return [];
   }
 
   List<String> _buildYoloUrlsToTry(String baseUrl) {
-    final urls = <String>{baseUrl};
+    // Try multiple URL variations for better web compatibility
+    final urls = <String>[
+      'http://localhost:8000/detect',
+      'http://127.0.0.1:8000/detect',
+    ];
 
-    if (baseUrl.contains('localhost')) {
-      urls.add(baseUrl.replaceAll('localhost', '127.0.0.1'));
-    }
-    if (baseUrl.contains('127.0.0.1')) {
-      urls.add(baseUrl.replaceAll('127.0.0.1', 'localhost'));
+    if (!urls.contains(baseUrl)) {
+      urls.insert(0, baseUrl);
     }
 
-    return urls.toList();
+    return urls;
   }
 
   Future<void> dispose() async {
@@ -577,24 +600,40 @@ class FoodDetectionService {
     final foodText = _foodSearchText(food);
     double score = 0;
 
+    // Exact match - highest score
     if (foodText == label) {
       score += confidence * 3.0;
     }
 
+    // Food starts or ends with label
     if (foodText.startsWith('$label ') || foodText.endsWith(' $label')) {
       score += confidence * 1.8;
     }
 
+    // Label starts or ends with food name (e.g., "string hoppers white" starts with "string hoppers")
+    if (label.startsWith('$foodText ') || label.endsWith(' $foodText')) {
+      score += confidence * 1.8;
+    }
+
+    // Food contains label
     if (foodText.contains(label)) {
       score += confidence * 1.5;
     }
 
-    final words = label.split(' ').where((w) => w.length >= 3);
-    final matchedWords = words.where(foodText.contains).length;
-    if (matchedWords > 0) {
-      score += confidence * (0.6 + (matchedWords * 0.25));
+    // Label contains food (e.g., "string hoppers white" contains "string hoppers")
+    if (label.contains(foodText) && foodText.length >= 4) {
+      score += confidence * 1.5;
     }
 
+    // Word-level matching
+    final labelWords = label.split(' ').where((w) => w.length >= 3).toSet();
+    final foodWords = foodText.split(' ').where((w) => w.length >= 3).toSet();
+    final matchedWords = labelWords.intersection(foodWords).length;
+    if (matchedWords > 0) {
+      score += confidence * (0.6 + (matchedWords * 0.35));
+    }
+
+    // Intent-based matching
     for (final entry in _labelIntentToFoodKeywords.entries) {
       if (!label.contains(entry.key)) continue;
       final matchesKeyword = entry.value.any(foodText.contains);
@@ -619,6 +658,7 @@ class FoodDetectionService {
   String _normalize(String value) {
     return value
         .toLowerCase()
+        .replaceAll(',', ' ') // Handle YOLO labels like "String Hoppers, White"
         .replaceAll(RegExp(r'[^a-z0-9\s]'), ' ')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
@@ -803,13 +843,35 @@ const Set<String> _descriptorWords = {
 };
 
 const Map<String, List<String>> _specificFoodAliases = {
-  'rice basmati boiled': ['basmati rice', 'boiled rice', 'rice'],
+  'rice basmati boiled': [
+    'basmati rice boiled',
+    'basmati rice',
+    'boiled rice',
+    'rice'
+  ],
   'rice keeri samba boiled': ['keeri samba', 'boiled rice', 'rice'],
-  'rice red kekulu boiled': ['red kekulu rice', 'red rice', 'rice'],
+  'rice red kekulu boiled': [
+    'red rice boiled',
+    'red kekulu rice',
+    'red rice',
+    'rice'
+  ],
   'rice samba boiled': ['samba rice', 'boiled rice', 'rice'],
-  'rice white kekulu boiled': ['white kekulu rice', 'white rice', 'rice'],
-  'rice white nadu boiled': ['white nadu rice', 'white rice', 'rice'],
-  'fried rice': ['rice'],
+  'rice white kekulu boiled': [
+    'white rice boiled',
+    'white kekulu rice',
+    'white rice',
+    'rice'
+  ],
+  'rice white nadu boiled': [
+    'white rice boiled',
+    'white nadu rice',
+    'white rice',
+    'rice'
+  ],
+  'white rice': ['white rice boiled', 'white rice', 'rice'],
+  'red rice': ['red rice boiled', 'red rice', 'rice'],
+  'fried rice': ['fried rice', 'rice'],
   'milk rice white': ['milk rice', 'kiribath', 'rice'],
   'milk rice red': ['milk rice', 'kiribath', 'red rice'],
   'big mac burger': ['burger', 'bun', 'beef'],
@@ -828,18 +890,35 @@ const Map<String, List<String>> _specificFoodAliases = {
   'instant noodles': ['noodles'],
   'string hoppers white': ['string hoppers', 'idiyappam'],
   'string hoppers red': ['string hoppers', 'idiyappam'],
-  'hoppers': ['hopper', 'appa'],
+  'string hopper white': ['string hoppers', 'idiyappam'],
+  'string hopper red': ['string hoppers', 'idiyappam'],
+  'hoppers': ['hoppers', 'hopper', 'appa'],
+  'pittu': ['pittu'],
   'pasta boiled': ['pasta'],
-  'dhal curry thick': ['dhal curry', 'lentil curry'],
-  'dhal curry': ['dhal curry', 'lentil curry', 'parippu'],
-  'dhal curry watery': ['dhal curry', 'lentil curry'],
-  'dhal curry spinach': ['dhal curry', 'lentil curry', 'spinach'],
-  'beans curry': ['green bean curry', 'bonchi curry', 'bean curry'],
+  'dhal curry thick': ['dhal curry thick', 'dhal curry', 'lentil curry'],
+  'dhal curry': ['dhal curry thick', 'dhal curry', 'lentil curry', 'parippu'],
+  'dhal curry watery': ['dhal curry thick', 'dhal curry', 'lentil curry'],
+  'dhal curry spinach': [
+    'dhal curry thick',
+    'dhal curry',
+    'lentil curry',
+    'spinach'
+  ],
+  'beans curry': [
+    'beans curry',
+    'green bean curry',
+    'bonchi curry',
+    'bean curry'
+  ],
   'green bean curry': ['beans curry', 'bonchi curry', 'bean curry'],
   'beetroot curry': ['beetroot curry', 'beet curry', 'vegetable curry'],
   'beetroot': ['beetroot curry', 'vegetable curry'],
-  'beans': ['green bean curry', 'beans curry', 'vegetable curry'],
-  'green beans': ['green bean curry', 'beans curry', 'vegetable curry'],
+  'beans': ['beans curry', 'green bean curry', 'vegetable curry'],
+  'green beans': ['beans curry', 'green bean curry', 'vegetable curry'],
+  'potato curry': ['potato curry', 'vegetable curry'],
+  'potato white curry': ['potato curry', 'vegetable curry'],
+  'pumpkin curry': ['pumpkin curry', 'vegetable curry'],
+  'brinjal curry': ['brinjal curry', 'vegetable curry'],
   'lentil': ['dhal curry thick', 'dhal curry', 'parippu'],
   'dhal': ['dhal curry thick', 'dhal curry', 'parippu'],
   'dal': ['dhal curry thick', 'dhal curry', 'parippu'],
@@ -848,19 +927,28 @@ const Map<String, List<String>> _specificFoodAliases = {
   'papadum': ['papadam', 'papadum', 'poppadom'],
   'poppadom': ['papadam', 'papadum', 'poppadom'],
   'mallum': ['gotukola mallum', 'mukunuwenna mallum', 'pol mallum'],
+  'gotukola mallum': ['gotukola mallum', 'mallum'],
   'papadam': ['papadam', 'papadum', 'poppadom', 'fried cracker'],
   'fish ambul thiyal': ['fish curry', 'fish'],
   'fish white curry': ['fish curry', 'fish'],
+  'fish curry': ['fish curry', 'fish'],
   'canned salmon mackeral curry': ['fish curry', 'salmon', 'mackerel'],
   'devilled fish': ['fish', 'fried fish'],
   'deep fried fish': ['fried fish', 'fish'],
-  'chicken curry': ['chicken'],
-  'devilled chicken': ['chicken'],
-  'fried chicken': ['chicken'],
-  'kfc fried chicken': ['fried chicken', 'chicken'],
-  'mcdonalds chicken nuggets': ['chicken nuggets', 'fried chicken'],
-  'egg bulls eye': ['fried egg', 'egg'],
-  'omelet': ['egg'],
+  'chicken curry': ['chicken curry', 'chicken'],
+  'devilled chicken': ['chicken curry', 'chicken'],
+  'fried chicken': ['chicken curry', 'chicken'],
+  'kfc fried chicken': ['fried chicken', 'chicken curry', 'chicken'],
+  'mcdonalds chicken nuggets': ['chicken nuggets', 'fried chicken', 'chicken'],
+  'beef curry': ['beef curry', 'beef', 'meat curry'],
+  'mutton curry': ['mutton curry', 'mutton', 'meat curry'],
+  'pork curry': ['pork curry', 'pork', 'meat curry'],
+  'egg bulls eye': ['egg curry', 'fried egg', 'egg'],
+  'omelet': ['egg curry', 'egg'],
+  'egg curry': ['egg curry', 'egg'],
+  'sambol': ['pol sambol', 'sambol', 'condiment'],
+  'pol sambol': ['pol sambol', 'sambol', 'condiment'],
+  'coconut sambol': ['pol sambol', 'sambol', 'condiment'],
   'full cream liquid milk fresh milk': ['fresh milk', 'full cream milk'],
   'low fat fresh milk': ['fresh milk', 'low fat milk'],
   'full cream milk tea': ['milk tea', 'tea'],
@@ -880,6 +968,9 @@ const Map<String, List<String>> _specificFoodAliases = {
   'plain biscuit': ['biscuit'],
   'cream biscuit': ['biscuit'],
   'cracker biscuit': ['biscuit', 'cracker'],
+  'banana': ['banana ripe', 'banana'],
+  'mango': ['mango ripe', 'mango'],
+  'papaya': ['papaya ripe', 'papaya'],
 };
 
 const Map<String, List<String>> _labelIntentToFoodKeywords = {
@@ -900,37 +991,116 @@ const Map<String, List<String>> _labelIntentToFoodKeywords = {
 const Map<String, List<String>> _yoloLabelAliases = {
   'rice': ['rice', 'white rice', 'red rice', 'steam rice', 'staple'],
   'rice plate': ['rice', 'plate meal', 'meal'],
-  'chicken curry': ['chicken', 'curry', 'poultry curry'],
-  'fish curry': ['fish', 'seafood', 'curry'],
-  'egg curry': ['egg', 'curry'],
-  'dhal curry': ['dhal', 'lentil', 'curry', 'bean curry'],
-  'dhal curry thick': ['dhal curry', 'lentil curry', 'parippu'],
-  'parippu': ['dhal curry', 'lentil curry', 'bean curry'],
-  'beans curry': ['green bean curry', 'bonchi curry', 'vegetable curry'],
-  'green beans curry': ['green bean curry', 'bonchi curry', 'vegetable curry'],
-  'potato curry': ['potato', 'vegetable curry', 'curry'],
-  'beetroot curry': ['beetroot', 'vegetable curry', 'curry'],
+  'white rice': ['white rice boiled', 'rice', 'staple'],
+  'red rice': ['red rice boiled', 'rice', 'staple'],
+  'chicken curry': ['chicken curry', 'chicken', 'curry', 'poultry curry'],
+  'fish curry': ['fish curry', 'fish', 'seafood', 'curry'],
+  'fish white curry': ['fish curry', 'fish', 'seafood', 'curry'],
+  'egg curry': ['egg curry', 'egg', 'curry'],
+  'dhal curry': ['dhal curry thick', 'dhal curry', 'lentil curry', 'parippu'],
+  'dhal curry thick': [
+    'dhal curry thick',
+    'dhal curry',
+    'lentil curry',
+    'parippu'
+  ],
+  'parippu': ['dhal curry thick', 'dhal curry', 'lentil curry', 'bean curry'],
+  'beans curry': [
+    'beans curry',
+    'green bean curry',
+    'bonchi curry',
+    'vegetable curry'
+  ],
+  'green beans curry': [
+    'beans curry',
+    'green bean curry',
+    'bonchi curry',
+    'vegetable curry'
+  ],
+  'potato curry': ['potato curry', 'potato', 'vegetable curry', 'curry'],
+  'potato white curry': ['potato curry', 'potato', 'vegetable curry', 'curry'],
+  'beetroot curry': ['beetroot curry', 'beetroot', 'vegetable curry', 'curry'],
   'beetroot': ['beetroot curry', 'vegetable curry', 'curry'],
-  'beans': ['green bean curry', 'beans curry', 'vegetable curry'],
-  'green beans': ['green bean curry', 'beans curry', 'vegetable curry'],
-  'string hopper': ['string hopper', 'idiyappam', 'noodle', 'staple'],
-  'hopper': ['hopper', 'appa', 'bread'],
-  'egg hopper': ['egg', 'hopper', 'bread'],
+  'beans': [
+    'beans curry',
+    'green bean curry',
+    'beans curry',
+    'vegetable curry'
+  ],
+  'green beans': [
+    'beans curry',
+    'green bean curry',
+    'beans curry',
+    'vegetable curry'
+  ],
+  'pumpkin curry': ['pumpkin curry', 'pumpkin', 'vegetable curry', 'curry'],
+  'brinjal curry': ['brinjal curry', 'brinjal', 'vegetable curry', 'curry'],
+  'string hopper': [
+    'string hoppers',
+    'string hopper',
+    'idiyappam',
+    'noodle',
+    'staple'
+  ],
+  'string hopper white': [
+    'string hoppers',
+    'string hopper',
+    'idiyappam',
+    'noodle',
+    'staple'
+  ],
+  'string hopper red': [
+    'string hoppers',
+    'string hopper',
+    'idiyappam',
+    'noodle',
+    'staple'
+  ],
+  'string hoppers': [
+    'string hoppers',
+    'string hopper',
+    'idiyappam',
+    'noodle',
+    'staple'
+  ],
+  'string hoppers white': [
+    'string hoppers',
+    'string hopper',
+    'idiyappam',
+    'noodle',
+    'staple'
+  ],
+  'string hoppers red': [
+    'string hoppers',
+    'string hopper',
+    'idiyappam',
+    'noodle',
+    'staple'
+  ],
+  'hopper': ['hoppers', 'hopper', 'appa', 'bread'],
+  'hoppers': ['hoppers', 'hopper', 'appa', 'bread'],
+  'egg hopper': ['hoppers', 'egg', 'hopper', 'bread'],
+  'pittu': ['pittu', 'staple'],
   'roti': ['roti', 'bread', 'flatbread'],
   'kottu': ['kottu', 'roti', 'mixed dish'],
   'biriyani': ['biriyani', 'rice', 'chicken rice'],
   'fried rice': ['fried rice', 'rice'],
   'noodles': ['noodle', 'pasta'],
-  'mallum': ['greens', 'vegetable', 'salad'],
-  'leafy greens': ['mallum', 'greens', 'vegetable'],
-  'sambol': ['sambol', 'condiment'],
-  'pol sambol': ['coconut sambol', 'sambol', 'condiment'],
+  'mallum': ['gotukola mallum', 'mallum', 'greens', 'vegetable', 'salad'],
+  'gotukola mallum': ['gotukola mallum', 'mallum', 'greens', 'vegetable'],
+  'leafy greens': ['gotukola mallum', 'mallum', 'greens', 'vegetable'],
+  'sambol': ['pol sambol', 'sambol', 'condiment'],
+  'pol sambol': ['pol sambol', 'coconut sambol', 'sambol', 'condiment'],
+  'coconut sambol': ['pol sambol', 'coconut sambol', 'sambol', 'condiment'],
   'papadam': ['papadam', 'papadum', 'poppadom', 'cracker'],
   'papadum': ['papadam', 'papadum', 'poppadom', 'cracker'],
   'poppadom': ['papadam', 'papadum', 'poppadom', 'cracker'],
-  'banana': ['banana', 'fruit'],
-  'mango': ['mango', 'fruit'],
-  'papaya': ['papaya', 'fruit'],
+  'banana': ['banana ripe', 'banana', 'fruit'],
+  'mango': ['mango ripe', 'mango', 'fruit'],
+  'papaya': ['papaya ripe', 'papaya', 'fruit'],
+  'beef curry': ['beef curry', 'beef', 'meat curry', 'curry'],
+  'mutton curry': ['mutton curry', 'mutton', 'meat curry', 'curry'],
+  'pork curry': ['pork curry', 'pork', 'meat curry', 'curry'],
 };
 
 const Set<String> _ignoredGenericLabels = {
@@ -977,6 +1147,18 @@ const Set<String> _plateSpecificEvidenceTokens = {
   'potato',
   'pumpkin',
   'vegetable',
+  'beef',
+  'mutton',
+  'pork',
+  'meat',
+  'brinjal',
+  'pittu',
+  'roti',
+  'string',
+  'banana',
+  'mango',
+  'papaya',
+  'fruit',
 };
 
 /// Detected food with portion estimation.

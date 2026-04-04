@@ -155,7 +155,8 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.error_outline, color: Colors.white, size: 56),
+                      const Icon(Icons.error_outline,
+                          color: Colors.white, size: 56),
                       const SizedBox(height: 12),
                       Text(
                         _errorMessage!,
@@ -171,13 +172,16 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> {
                       const SizedBox(height: 8),
                       TextButton(
                         onPressed: () => Navigator.pop(context),
-                        child: const Text('Back', style: TextStyle(color: Colors.white)),
+                        child: const Text('Back',
+                            style: TextStyle(color: Colors.white)),
                       ),
                     ],
                   ),
                 ),
               )
-            : _isInitializing || controller == null || !controller.value.isInitialized
+            : _isInitializing ||
+                    controller == null ||
+                    !controller.value.isInitialized
                 ? const Center(child: CircularProgressIndicator())
                 : Stack(
                     fit: StackFit.expand,
@@ -205,7 +209,8 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> {
                           children: [
                             IconButton(
                               onPressed: () => Navigator.pop(context),
-                              icon: const Icon(Icons.close, color: Colors.white),
+                              icon:
+                                  const Icon(Icons.close, color: Colors.white),
                             ),
                             const Spacer(),
                             if (_cameras.length > 1)

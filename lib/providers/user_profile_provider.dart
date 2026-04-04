@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import '../models/user_profile.dart';
 import '../services/supabase_service.dart';
 
@@ -17,6 +18,13 @@ class UserProfileProvider with ChangeNotifier {
   String? get errorMessage => _errorMessage;
   bool isLoadedFor(String userId) => _loadedUserId == userId;
 
+  /// Safely notify listeners, deferring if during build phase
+  void _safeNotifyListeners() {
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      notifyListeners();
+    });
+  }
+
   Future<void> loadUserProfile(String userId) async {
     if (_isLoading && _loadedUserId == userId) {
       debugPrint('UserProfileProvider: Already loading profile for $userId');
@@ -27,20 +35,20 @@ class UserProfileProvider with ChangeNotifier {
     _isLoading = true;
     _loadedUserId = userId;
     _errorMessage = null;
-    notifyListeners();
+    _safeNotifyListeners();
 
     try {
       _userProfile = await _supabaseService.getUserProfile(userId);
       debugPrint(
           'UserProfileProvider: Profile loaded successfully: ${_userProfile != null}');
       _isLoading = false;
-      notifyListeners();
+      _safeNotifyListeners();
     } catch (e) {
       debugPrint('UserProfileProvider: Error loading profile: $e');
       _errorMessage = e.toString();
       _userProfile = null;
       _isLoading = false;
-      notifyListeners();
+      _safeNotifyListeners();
     }
   }
 
@@ -48,25 +56,25 @@ class UserProfileProvider with ChangeNotifier {
     _isLoading = true;
     _loadedUserId = profile.id;
     _errorMessage = null;
-    notifyListeners();
+    _safeNotifyListeners();
 
     try {
       await _supabaseService.upsertUserProfile(profile);
       _userProfile = profile;
       _isLoading = false;
-      notifyListeners();
+      _safeNotifyListeners();
       return true;
     } catch (e) {
       _errorMessage = e.toString();
       _isLoading = false;
-      notifyListeners();
+      _safeNotifyListeners();
       return false;
     }
   }
 
   void clearError() {
     _errorMessage = null;
-    notifyListeners();
+    _safeNotifyListeners();
   }
 
   void clearProfile() {
@@ -74,6 +82,6 @@ class UserProfileProvider with ChangeNotifier {
     _loadedUserId = null;
     _isLoading = false;
     _errorMessage = null;
-    notifyListeners();
+    _safeNotifyListeners();
   }
 }

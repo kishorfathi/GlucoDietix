@@ -66,12 +66,14 @@ class ResearchLoggingService {
       recommendedCarbs += item.food.carbs100g * recommendedGrams / 100;
     }
 
-    final actualCalories = items.fold<double>(0, (sum, item) => sum + item.kcal);
+    final actualCalories =
+        items.fold<double>(0, (sum, item) => sum + item.kcal);
     final actualCarbs = items.fold<double>(0, (sum, item) => sum + item.carbs);
     final actualPortionGrams =
         items.fold<double>(0, (sum, item) => sum + item.grams);
 
-    final calorieVariance = _percentVariance(actualCalories, recommendedCalories);
+    final calorieVariance =
+        _percentVariance(actualCalories, recommendedCalories);
     final carbVariance = _percentVariance(actualCarbs, recommendedCarbs);
 
     final followedPortionAdvice =

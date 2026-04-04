@@ -79,9 +79,8 @@ class _ResultsScreenState extends State<ResultsScreen> {
 
     try {
       final consent = await _supabaseService.getInformedConsent(userId);
-      final isConsented = consent != null &&
-          consent.isFullyConsented &&
-          !consent.hasWithdrawn;
+      final isConsented =
+          consent != null && consent.isFullyConsented && !consent.hasWithdrawn;
 
       if (!isConsented) {
         if (!mounted) return;
@@ -597,8 +596,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton.icon(
-                      onPressed:
-                          _isSavingLog ? null : _saveMealToResearchLog,
+                      onPressed: _isSavingLog ? null : _saveMealToResearchLog,
                       icon: const Icon(Icons.save),
                       label: Text(_isSavingLog
                           ? 'Saving...'

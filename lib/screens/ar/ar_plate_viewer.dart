@@ -47,8 +47,8 @@ class _ARPlateViewerScreenState extends State<ARPlateViewerScreen> {
     };
     _recommendedById = {
       for (final item in widget.items)
-        item.food.id:
-            _detectionService.getSmartPortionFromProfile(item.food, widget.profile),
+        item.food.id: _detectionService.getSmartPortionFromProfile(
+            item.food, widget.profile),
     };
 
     if (kIsWeb) {
@@ -212,8 +212,7 @@ class _ARPlateViewerScreenState extends State<ARPlateViewerScreen> {
         items.fold(0.0, (sum, item) => sum + item.carbs).toDouble();
     final totalProtein =
         items.fold(0.0, (sum, item) => sum + item.protein).toDouble();
-    final totalFat =
-        items.fold(0.0, (sum, item) => sum + item.fat).toDouble();
+    final totalFat = items.fold(0.0, (sum, item) => sum + item.fat).toDouble();
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -249,7 +248,9 @@ class _ARPlateViewerScreenState extends State<ARPlateViewerScreen> {
                   ),
                 ),
               )
-            : _isInitializing || controller == null || !controller.value.isInitialized
+            : _isInitializing ||
+                    controller == null ||
+                    !controller.value.isInitialized
                 ? const Center(child: CircularProgressIndicator())
                 : Stack(
                     fit: StackFit.expand,
@@ -365,8 +366,7 @@ class _ARPlateViewerScreenState extends State<ARPlateViewerScreen> {
                 ),
               ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: isBalanced ? Colors.green : Colors.orange,
                   borderRadius: BorderRadius.circular(12),

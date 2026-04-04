@@ -19,7 +19,7 @@ img.save(buffer, format='JPEG')
 image_b64 = base64.b64encode(buffer.getvalue()).decode()
 
 # Test YOLO server
-url = 'http://127.0.0.1:5000/detect'
+url = 'http://127.0.0.1:8000/detect'
 payload = {
     'image': image_b64,
     'topK': 10
@@ -55,4 +55,4 @@ print("\n" + "="*50)
 print("To properly test:")
 print("   1. Upload a real food image in the app")
 print("   2. Check browser console for network requests")
-print("   3. Verify the request reaches http://127.0.0.1:5000/detect")
+print("   3. Verify the request reaches http://127.0.0.1:8000/detect")

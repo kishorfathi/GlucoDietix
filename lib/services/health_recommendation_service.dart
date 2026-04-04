@@ -35,8 +35,8 @@ class HealthRecommendationService {
         recommendations.add(
             'Consider reducing overall portion sizes to support weight goals');
       } else if (bmi < 18.5) {
-        recommendations.add(
-            'Add nutrient-dense foods to support healthy weight');
+        recommendations
+            .add('Add nutrient-dense foods to support healthy weight');
       }
     }
 

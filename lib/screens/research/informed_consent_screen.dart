@@ -63,7 +63,8 @@ class _InformedConsentScreenState extends State<InformedConsentScreen> {
     _agreedToParticipate = consent.agreedToParticipate;
     _agreedToDataCollection = consent.agreedToDataCollection;
     _agreedToHealthDataSharing = consent.agreedToHealthDataSharing;
-    _understoodVoluntaryParticipation = consent.understoodVoluntaryParticipation;
+    _understoodVoluntaryParticipation =
+        consent.understoodVoluntaryParticipation;
     _understoodDataConfidentiality = consent.understoodDataConfidentiality;
     _understoodRightToWithdraw = consent.understoodRightToWithdraw;
     _signatureController.text = consent.signature ?? '';

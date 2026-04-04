@@ -30,9 +30,12 @@ Version: 1.0.0
 
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import Optional
 from ultralytics import YOLO
 from pathlib import Path
 import io
+import base64
 from PIL import Image
 import uvicorn
 
@@ -42,7 +45,7 @@ import uvicorn
 # ==============================================================================
 
 PORT = 8000                    # Server port number
-CONFIDENCE_THRESHOLD = 0.3     # Minimum detection confidence (0.0 to 1.0)
+CONFIDENCE_THRESHOLD = 0.15    # Minimum detection confidence (lowered for better detection)
 MODEL_PATH = Path(__file__).parent / "models" / "best.pt"  # Path to YOLO model
 
 
@@ -69,6 +72,16 @@ app.add_middleware(
 
 # Global variable to store the loaded YOLO model
 model = None
+
+
+# ==============================================================================
+# REQUEST MODELS
+# ==============================================================================
+
+class DetectRequest(BaseModel):
+    """Request model for JSON-based detection (used by Flutter app)"""
+    image: str  # Base64 encoded image
+    topK: Optional[int] = 25  # Maximum number of detections to return
 
 
 # ==============================================================================
@@ -154,20 +167,17 @@ async def health_check():
 
 
 @app.post("/detect")
-async def detect_food(file: UploadFile = File(...)):
+async def detect_food(request: DetectRequest):
     """
-    Main food detection endpoint.
+    Main food detection endpoint (JSON with base64 image).
 
-    Receives an image file and returns detected food items.
+    Used by Flutter app. Accepts JSON body with base64-encoded image.
 
     Args:
-        file: Image file (JPEG, PNG, etc.)
+        request: JSON with 'image' (base64 string) and optional 'topK' (int)
 
     Returns:
-        JSON: {"foods": ["rice", "chicken curry", "dhal"]}
-
-    Example:
-        curl -X POST -F "file=@plate.jpg" http://localhost:8000/detect
+        JSON: {"detections": [{"label": "rice", "confidence": 0.95}, ...]}
     """
     # Check if model is loaded
     if model is None:
@@ -177,36 +187,116 @@ async def detect_food(file: UploadFile = File(...)):
         )
 
     try:
-        # Step 1: Read and open the uploaded image
-        contents = await file.read()
-        image = Image.open(io.BytesIO(contents))
+        # Decode base64 image
+        try:
+            image_data = base64.b64decode(request.image)
+            image = Image.open(io.BytesIO(image_data))
+            print(f"Processing base64 image ({len(request.image)} chars)")
+        except Exception as decode_error:
+            print(f"Base64 decode error: {decode_error}")
+            raise HTTPException(status_code=400, detail="Invalid base64 image")
 
-        print(f"Processing image: {file.filename}")
-
-        # Step 2: Run YOLO detection on the image
+        # Run YOLO detection on the image
         results = model(image, conf=CONFIDENCE_THRESHOLD)
 
-        # Step 3: Extract detected food names (avoid duplicates)
-        detected_foods = []
+        # Extract detected foods with confidence (format expected by Flutter app)
+        detections = []
+        seen_labels = set()
 
         for result in results:
             boxes = result.boxes
 
             if boxes is not None and len(boxes) > 0:
                 for box in boxes:
-                    class_id = int(box.cls[0])        # Get class ID
-                    confidence = float(box.conf[0])   # Get confidence score
-                    class_name = model.names[class_id]  # Get class name
+                    class_id = int(box.cls[0])
+                    confidence = float(box.conf[0])
+                    class_name = model.names[class_id]
 
-                    # Add to list if not already present
-                    if class_name not in detected_foods:
-                        detected_foods.append(class_name)
+                    # Avoid duplicates - keep highest confidence for each label
+                    if class_name not in seen_labels:
+                        seen_labels.add(class_name)
+                        detections.append({
+                            "label": class_name,
+                            "confidence": round(confidence, 3)
+                        })
                         print(f"  Detected: {class_name} ({confidence:.1%})")
 
-        print(f"Total detected: {len(detected_foods)} food items")
+        # Sort by confidence and limit results
+        detections.sort(key=lambda x: x["confidence"], reverse=True)
+        detections = detections[:request.topK]
 
-        # Step 4: Return the results
-        return {"foods": detected_foods}
+        print(f"Total detected: {len(detections)} food items")
+
+        # Return format expected by Flutter app
+        return {"detections": detections}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Detection error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Detection failed: {str(e)}")
+
+
+@app.post("/detect-file")
+async def detect_food_file(file: UploadFile = File(...)):
+    """
+    File-based food detection endpoint.
+
+    Receives an image file and returns detected food items.
+
+    Args:
+        file: Image file (JPEG, PNG, etc.)
+
+    Returns:
+        JSON: {"detections": [{"label": "rice", "confidence": 0.95}, ...]}
+
+    Example:
+        curl -X POST -F "file=@plate.jpg" http://localhost:8000/detect-file
+    """
+    # Check if model is loaded
+    if model is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Model not loaded. Please restart the server."
+        )
+
+    try:
+        # Read and open the uploaded image
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))
+
+        print(f"Processing uploaded file: {file.filename}")
+
+        # Run YOLO detection on the image
+        results = model(image, conf=CONFIDENCE_THRESHOLD)
+
+        # Extract detected foods with confidence
+        detections = []
+        seen_labels = set()
+
+        for result in results:
+            boxes = result.boxes
+
+            if boxes is not None and len(boxes) > 0:
+                for box in boxes:
+                    class_id = int(box.cls[0])
+                    confidence = float(box.conf[0])
+                    class_name = model.names[class_id]
+
+                    if class_name not in seen_labels:
+                        seen_labels.add(class_name)
+                        detections.append({
+                            "label": class_name,
+                            "confidence": round(confidence, 3)
+                        })
+                        print(f"  Detected: {class_name} ({confidence:.1%})")
+
+        # Sort by confidence
+        detections.sort(key=lambda x: x["confidence"], reverse=True)
+
+        print(f"Total detected: {len(detections)} food items")
+
+        return {"detections": detections}
 
     except Exception as e:
         print(f"Detection error: {str(e)}")

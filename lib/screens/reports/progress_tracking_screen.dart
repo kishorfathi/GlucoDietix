@@ -249,14 +249,12 @@ class _ProgressTrackingScreenState extends State<ProgressTrackingScreen> {
       );
     }
 
-    final averageScore = records
-            .map((r) => r.adherenceScore)
-            .reduce((a, b) => a + b) /
-        records.length;
-    final portionRate =
-        records.where((r) => r.followedPortionAdvice).length /
-            records.length *
-            100;
+    final averageScore =
+        records.map((r) => r.adherenceScore).reduce((a, b) => a + b) /
+            records.length;
+    final portionRate = records.where((r) => r.followedPortionAdvice).length /
+        records.length *
+        100;
     final giRate = records.where((r) => r.avoidedHighGIFoods).length /
         records.length *
         100;

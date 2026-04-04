@@ -120,7 +120,8 @@ class _ResearchHubScreenState extends State<ResearchHubScreen> {
                       );
                       _loadResearchData();
                     },
-                    child: Text(consented ? 'Review Consent' : 'Review and Sign'),
+                    child:
+                        Text(consented ? 'Review Consent' : 'Review and Sign'),
                   ),
                 ),
                 if (consented && !withdrawn) ...[

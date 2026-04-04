@@ -297,6 +297,7 @@ class MealRecommendationService {
         return '💡 Stay hydrated and maintain regular meal times.';
     }
   }
+
   bool _matchesDietaryPreference(String foodName, String preference) {
     switch (preference) {
       case 'vegetarian':
