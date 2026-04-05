@@ -312,8 +312,7 @@ class FoodDetectionService {
     if (trimmed.isEmpty) return '';
 
     if (trimmed.endsWith('/health')) {
-      return trimmed.substring(0, trimmed.length - '/health'.length) +
-          '/detect';
+      return '${trimmed.substring(0, trimmed.length - '/health'.length)}/detect';
     }
 
     if (trimmed.endsWith('/detect')) {

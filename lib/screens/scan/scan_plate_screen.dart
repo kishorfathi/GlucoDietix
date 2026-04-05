@@ -830,7 +830,7 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
                                       value: (currentPortion / maxLimit)
                                           .clamp(0.0, 1.0),
                                       minHeight: 6,
-                                      backgroundColor: scheme.surfaceVariant,
+                                      backgroundColor: scheme.surfaceContainerHighest,
                                       valueColor: AlwaysStoppedAnimation(
                                         isOverLimit
                                             ? Colors.red
@@ -1115,7 +1115,7 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
                           value:
                               (totalCarbs / max(targetCarbs, 1)).clamp(0.0, 1),
                           minHeight: 6,
-                          backgroundColor: scheme.surfaceVariant,
+                          backgroundColor: scheme.surfaceContainerHighest,
                           valueColor: AlwaysStoppedAnimation(
                             overCarbLimit ? Colors.red : scheme.primary,
                           ),
@@ -1182,7 +1182,7 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: scheme.surfaceVariant,
+        color: scheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(10),
       ),
       child: Text(
