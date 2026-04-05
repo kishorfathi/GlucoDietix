@@ -83,6 +83,18 @@ python main.py
 Server runs at: `http://localhost:8000`
 API Documentation: `http://localhost:8000/docs`
 
+Optional AI fallback (for foods missing in YOLO classes):
+
+```powershell
+# Windows PowerShell
+$env:OPENAI_API_KEY="your_openai_api_key"
+# Optional overrides
+$env:OPENAI_VISION_MODEL="gpt-4.1-mini"
+$env:AI_FALLBACK_MIN_YOLO_COUNT="2"
+```
+
+When enabled, backend will call AI vision if YOLO returns too few items.
+
 ### 2. Run the Flutter App
 
 ```bash
@@ -100,6 +112,20 @@ flutter run -d chrome    # Web
 flutter run -d windows   # Windows
 flutter run -d android   # Android device/emulator
 ```
+
+Fast startup (recommended for daily web development):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tool\run_fast_web.ps1
+```
+
+What this improves:
+- skips repeated `pub get` during every run
+- disables widget-creation tracking in debug
+- uses web-server target with fixed port `53132`
+- can auto-start YOLO backend (use `-SkipYolo` to skip)
+
+Note: The very first `flutter run` after code changes is always slower due to Flutter compilation. Subsequent hot reloads (`r`) are much faster.
 
 ---
 

@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GlucoDietix AR Plate</title>
+  <style>
+    :root {
+      --bg: #070b12;
+      --panel: rgba(9, 16, 28, 0.82);
+      --panel-border: rgba(151, 176, 214, 0.35);
+      --text: #f2f7ff;
+      --muted: #b6c4db;
+      --accent: #28b8ff;
+      --rice: #ffd166;
+      --vegetable: #41c97a;
+      --protein: #ff6b6b;
+      --dhal: #ff9f43;
+      --other: #89a4c2;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      background: var(--bg);
+      font-family: "Segoe UI", Arial, sans-serif;
+      color: var(--text);
+      overflow: hidden;
+    }
+
+    #root {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+
+    #camera {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      background: #000;
+    }
+
+    #vignette {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at center, transparent 35%, rgba(0, 0, 0, 0.4) 100%),
+        linear-gradient(to bottom, rgba(0, 0, 0, 0.25), transparent 28%, rgba(0, 0, 0, 0.45));
+      pointer-events: none;
+    }
+
+    #plate {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: min(68vw, 340px);
+      height: min(68vw, 340px);
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.55));
+    }
+
+    #topCard, #bottomCard {
+      position: absolute;
+      left: 12px;
+      right: 12px;
+      border: 1px solid var(--panel-border);
+      background: var(--panel);
+      border-radius: 14px;
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+    }
+
+    #topCard {
+      top: 12px;
+      padding: 10px 12px;
+    }
+
+    #title {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    #subtitle {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+
+    #bottomCard {
+      bottom: 12px;
+      padding: 10px 12px;
+      max-height: 42vh;
+      overflow: auto;
+    }
+
+    #items {
+      display: grid;
+      gap: 8px;
+    }
+
+    .item {
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(153, 176, 214, 0.28);
+      background: rgba(255, 255, 255, 0.05);
+      font-size: 12px;
+    }
+
+    .itemHead {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 4px;
+      font-weight: 600;
+    }
+
+    .deltaGood {
+      color: #6bffb8;
+    }
+
+    .deltaWarn {
+      color: #ffd074;
+    }
+
+    .deltaBad {
+      color: #ff9191;
+    }
+
+    #status {
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      border: 1px solid rgba(170, 191, 227, 0.38);
+      background: rgba(7, 15, 28, 0.78);
+      color: #dce9ff;
+      max-width: calc(100vw - 24px);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    #legend {
+      margin-top: 6px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div id="root">
+    <video id="camera" autoplay playsinline muted></video>
+    <canvas id="plate" width="500" height="500"></canvas>
+    <div id="vignette"></div>
+
+    <div id="status">Starting camera...</div>
+
+    <div id="topCard">
+      <div id="title">AR Plate Portion Guide</div>
+      <div id="subtitle">Diabetes-focused visual portion reference. No marker required.</div>
+      <div id="legend">
+        <span><span class="dot" style="background: var(--rice);"></span>Rice</span>
+        <span><span class="dot" style="background: var(--vegetable);"></span>Vegetable</span>
+        <span><span class="dot" style="background: var(--protein);"></span>Protein</span>
+        <span><span class="dot" style="background: var(--dhal);"></span>Dhal</span>
+      </div>
+    </div>
+
+    <div id="bottomCard">
+      <div id="items"></div>
+    </div>
+  </div>
+
+  <script>
+    function parsePayload() {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const raw = params.get('data');
+        if (!raw) return { items: [], segments: [] };
+        const decoded = decodeURIComponent(raw);
+        const data = JSON.parse(decoded);
+        return {
+          items: Array.isArray(data.items) ? data.items : [],
+          segments: Array.isArray(data.segments) ? data.segments : []
+        };
+      } catch (error) {
+        return { items: [], segments: [] };
+      }
+    }
+
+    function categoryColor(cat) {
+      const normalized = String(cat || '').toLowerCase();
+      if (normalized.includes('rice')) return getComputedStyle(document.documentElement).getPropertyValue('--rice').trim();
+      if (normalized.includes('vegetable')) return getComputedStyle(document.documentElement).getPropertyValue('--vegetable').trim();
+      if (normalized.includes('protein')) return getComputedStyle(document.documentElement).getPropertyValue('--protein').trim();
+      if (normalized.includes('dhal')) return getComputedStyle(document.documentElement).getPropertyValue('--dhal').trim();
+      return getComputedStyle(document.documentElement).getPropertyValue('--other').trim();
+    }
+
+    function setStatus(text) {
+      const status = document.getElementById('status');
+      if (status) status.textContent = text;
+    }
+
+    function drawPlate(segments) {
+      const canvas = document.getElementById('plate');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      const width = canvas.width;
+      const height = canvas.height;
+      const cx = width / 2;
+      const cy = height / 2;
+      const radius = Math.min(width, height) * 0.42;
+      const ringWidth = radius * 0.52;
+
+      ctx.clearRect(0, 0, width, height);
+
+      const total = segments.reduce((sum, s) => sum + Math.max(0, Number(s.portionCount) || 0), 0);
+      const safeTotal = total > 0 ? total : 1;
+
+      let start = -Math.PI / 2;
+      segments.forEach((segment) => {
+        const value = Math.max(0, Number(segment.portionCount) || 0);
+        if (value <= 0) return;
+        const angle = (value / safeTotal) * Math.PI * 2;
+        const end = start + angle;
+
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, start, end);
+        ctx.arc(cx, cy, radius - ringWidth, end, start, true);
+        ctx.closePath();
+        ctx.fillStyle = categoryColor(segment.category);
+        ctx.globalAlpha = 0.9;
+        ctx.fill();
+        ctx.globalAlpha = 1;
+
+        start = end;
+      });
+
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius + 2, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(230, 241, 255, 0.7)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius - ringWidth - 2, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(230, 241, 255, 0.5)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.fillStyle = 'rgba(5, 12, 23, 0.78)';
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius - ringWidth - 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#eaf2ff';
+      ctx.font = '600 24px Segoe UI, Arial, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Plate', cx, cy - 6);
+      ctx.font = '500 15px Segoe UI, Arial, sans-serif';
+      ctx.fillStyle = '#b5c8e8';
+      ctx.fillText('portion guide', cx, cy + 20);
+    }
+
+    function renderItems(items) {
+      const root = document.getElementById('items');
+      root.innerHTML = '';
+      if (!items.length) {
+        const empty = document.createElement('div');
+        empty.className = 'item';
+        empty.textContent = 'No foods selected yet.';
+        root.appendChild(empty);
+        return;
+      }
+
+      items.forEach((item) => {
+        const grams = Number(item.grams) || 0;
+        const recommended = Number(item.recommended) || 0;
+        const diff = grams - recommended;
+        const ratio = recommended > 0 ? grams / recommended : 1;
+        const deltaClass = ratio <= 1.1 ? 'deltaGood' : ratio <= 1.3 ? 'deltaWarn' : 'deltaBad';
+        const diffLabel = diff >= 0 ? `+${diff.toFixed(0)} g` : `${diff.toFixed(0)} g`;
+
+        const node = document.createElement('div');
+        node.className = 'item';
+        node.innerHTML = `
+          <div class="itemHead">
+            <span>${item.name || 'Food item'}</span>
+            <span class="${deltaClass}">${diffLabel}</span>
+          </div>
+          <div>Current: ${grams.toFixed(0)} g | Recommended: ${recommended.toFixed(0)} g</div>
+        `;
+        root.appendChild(node);
+      });
+    }
+
+    async function startCamera() {
+      const video = document.getElementById('camera');
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setStatus('Camera API is not available in this browser.');
+        return;
+      }
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' } },
+          audio: false
+        });
+        video.srcObject = stream;
+        await video.play();
+        setStatus('Camera active. Align your plate with the overlay.');
+
+        window.addEventListener('beforeunload', () => {
+          stream.getTracks().forEach((track) => track.stop());
+        });
+      } catch (error) {
+        setStatus('Camera access denied. Allow camera permission for AR Plate.');
+      }
+    }
+
+    (function init() {
+      const data = parsePayload();
+      renderItems(data.items);
+      drawPlate(data.segments);
+      startCamera();
+    })();
+  </script>
+</body>
+</html>

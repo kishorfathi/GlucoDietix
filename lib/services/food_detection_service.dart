@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
-import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:google_mlkit_image_labeling/google_mlkit_image_labeling.dart';
 import '../models/food.dart';
@@ -10,11 +10,13 @@ import '../models/user_profile.dart';
 /// Uses on-device ML Kit for food detection (simple and stable)
 class FoodDetectionService {
   ImageLabeler? _labeler;
+  static const double _minDetectedSignalConfidence = 0.008;
   static const String _visionApiKey =
       String.fromEnvironment('GOOGLE_VISION_API_KEY');
-
-  // Hardcoded YOLO server URL - works better on Flutter web
-  static const String _yoloServerUrl = 'http://127.0.0.1:8000/detect';
+  static const String _yoloServerUrl = String.fromEnvironment(
+    'YOLO_SERVER_URL',
+    defaultValue: 'http://127.0.0.1:8000/detect',
+  );
 
   ImageLabeler _getLabeler() {
     _labeler ??= ImageLabeler(
@@ -29,37 +31,35 @@ class FoodDetectionService {
     required Uint8List imageBytes,
     required String? imagePath,
   }) async {
-    if (availableFoods.isEmpty) return [];
-
     try {
-      // Try YOLO server first (primary ML path for mobile + desktop)
       if (imageBytes.isNotEmpty) {
         final yoloSignals = await _detectWithYoloServer(imageBytes);
-        print('🔍 YOLO returned ${yoloSignals.length} detections');
+        print('YOLO returned ${yoloSignals.length} detections');
         if (yoloSignals.isNotEmpty) {
-          print('✅ Detected ${yoloSignals.length} objects with YOLO:');
-          for (final signal in yoloSignals.take(10)) {
-            print(
-                '   - ${signal.label} (${(signal.confidence * 100).toStringAsFixed(1)}%)');
+          if (availableFoods.isNotEmpty) {
+            final matched = _matchSignalsToFoods(
+              yoloSignals,
+              availableFoods,
+              detectionMethod: 'YOLOv11 (Server)',
+            );
+            print('Matched ${matched.length} foods from YOLO detections');
+            if (matched.isNotEmpty) {
+              return matched;
+            }
           }
-          final matched = _matchSignalsToFoods(
+
+          final fallback = _buildFallbackDetectionsFromSignals(
             yoloSignals,
-            availableFoods,
-            detectionMethod: 'YOLOv11 (Server)',
+            detectionMethod: 'YOLOv11 (Server Fallback)',
           );
-          print('📋 Matched ${matched.length} foods from YOLO detections');
-          return matched;
-        } else {
-          print(
-              '⚠️ YOLO returned 0 detections - image may not contain recognizable food');
+          if (fallback.isNotEmpty) {
+            return fallback;
+          }
         }
       }
 
-      // ML Kit fallback only on mobile platforms (not desktop)
       if (imagePath != null && imagePath.isNotEmpty && !kIsWeb) {
         try {
-          print('📸 Processing image with ML Kit (mobile fallback)...');
-
           final input = InputImage.fromFilePath(imagePath);
           final labels = await _getLabeler().processImage(input);
 
@@ -71,24 +71,31 @@ class FoodDetectionService {
               .toList();
 
           if (signals.isNotEmpty) {
-            print('✅ Detected ${signals.length} objects with ML Kit');
-            for (final label in signals) {
-              print(
-                  '   - ${label.label} (${(label.confidence * 100).toStringAsFixed(1)}%)');
+            if (availableFoods.isNotEmpty) {
+              final matched = _matchSignalsToFoods(
+                signals,
+                availableFoods,
+                detectionMethod: 'ML Kit (On-device)',
+              );
+              if (matched.isNotEmpty) {
+                return matched;
+              }
             }
 
-            return _matchSignalsToFoods(
+            final fallback = _buildFallbackDetectionsFromSignals(
               signals,
-              availableFoods,
-              detectionMethod: 'ML Kit (On-device)',
+              detectionMethod: 'ML Kit (On-device Fallback)',
             );
+            if (fallback.isNotEmpty) {
+              return fallback;
+            }
           }
         } catch (e) {
-          print('ℹ️  ML Kit not available on this platform: $e');
+          print('ML Kit not available on this platform: $e');
         }
       }
     } catch (e) {
-      print('❌ Detection error: $e');
+      print('Detection error: $e');
     }
 
     return [];
@@ -127,14 +134,26 @@ class FoodDetectionService {
     List<Food> availableFoods,
     Uint8List imageBytes,
   ) async {
-    if (availableFoods.isEmpty) return [];
     final yoloSignals = await _detectWithYoloServer(imageBytes);
     if (yoloSignals.isNotEmpty) {
-      return _matchSignalsToFoods(
+      if (availableFoods.isNotEmpty) {
+        final matched = _matchSignalsToFoods(
+          yoloSignals,
+          availableFoods,
+          detectionMethod: 'YOLOv8 (Local)',
+        );
+        if (matched.isNotEmpty) {
+          return matched;
+        }
+      }
+
+      final fallback = _buildFallbackDetectionsFromSignals(
         yoloSignals,
-        availableFoods,
-        detectionMethod: 'YOLOv8 (Local)',
+        detectionMethod: 'YOLOv8 (Local Fallback)',
       );
+      if (fallback.isNotEmpty) {
+        return fallback;
+      }
     }
 
     if (_visionApiKey.isEmpty) return [];
@@ -184,10 +203,20 @@ class FoodDetectionService {
 
       if (signals.isEmpty) return [];
 
-      return _matchSignalsToFoods(
+      if (availableFoods.isNotEmpty) {
+        final matched = _matchSignalsToFoods(
+          signals,
+          availableFoods,
+          detectionMethod: 'Google Vision (Web)',
+        );
+        if (matched.isNotEmpty) {
+          return matched;
+        }
+      }
+
+      return _buildFallbackDetectionsFromSignals(
         signals,
-        availableFoods,
-        detectionMethod: 'Google Vision (Web)',
+        detectionMethod: 'Google Vision (Web Fallback)',
       );
     } catch (e) {
       return [];
@@ -196,16 +225,17 @@ class FoodDetectionService {
 
   Future<List<_LabelSignal>> _detectWithYoloServer(Uint8List imageBytes) async {
     if (_yoloServerUrl.isEmpty) {
-      print('⚠️ YOLO server URL is empty');
+      print('YOLO server URL is empty');
       return [];
     }
 
     final urlsToTry = _buildYoloUrlsToTry(_yoloServerUrl);
-    print('🔗 Attempting YOLO detection at: ${urlsToTry.join(", ")}');
+    print('Attempting YOLO detection at: ${urlsToTry.join(", ")}');
+    var reachableServerFound = false;
 
     for (final url in urlsToTry) {
       try {
-        print('📡 Sending request to $url...');
+        print('Sending request to $url...');
         final response = await http
             .post(
               Uri.parse(url),
@@ -217,59 +247,250 @@ class FoodDetectionService {
             )
             .timeout(const Duration(seconds: 30));
 
-        print('📥 Response status: ${response.statusCode}');
+        print('Response status: ${response.statusCode}');
 
         if (response.statusCode != 200) {
-          print('❌ Server returned error: ${response.body}');
+          print('Server returned error: ${response.body}');
           continue;
         }
+        reachableServerFound = true;
 
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final detections = data['detections'] as List<dynamic>? ?? [];
-
-        print('✅ Server response: ${detections.length} detections');
-
-        if (detections.isEmpty) {
-          print(
-              '⚠️ Server returned 0 detections - model may not recognize the food');
-          return [];
+        final decoded = jsonDecode(response.body);
+        final signals = _extractSignalsFromYoloResponse(decoded);
+        print('Server response: ${signals.length} detections');
+        if (signals.isNotEmpty) {
+          for (final signal in signals.take(10)) {
+            print(
+                '   ${signal.label} (${(signal.confidence * 100).toStringAsFixed(1)}%)');
+          }
+          return signals;
         }
 
-        return detections
-            .map((item) {
-              final label = item['label'] as String? ?? '';
-              final confidence = (item['confidence'] as num?)?.toDouble() ?? 0;
-              print('   📍 $label (${(confidence * 100).toStringAsFixed(1)}%)');
-              return _LabelSignal(
-                label: label,
-                confidence: confidence,
-              );
-            })
-            .where((signal) => signal.label.isNotEmpty)
-            .toList();
+        print('No usable detections from $url, trying next backend...');
       } catch (e) {
-        print('❌ Connection failed to $url: $e');
+        print('Connection failed to $url: $e');
         continue;
       }
     }
 
-    print('❌ All YOLO server connections failed. Is the backend running?');
-    print('   Start it with: python backend/main.py');
+    if (reachableServerFound) {
+      print('YOLO backend reachable but returned no recognizable detections.');
+    } else {
+      print('All YOLO server connections failed.');
+      print(
+          'Start it with: powershell -ExecutionPolicy Bypass -File .\\tool\\run_yolo_server.ps1');
+    }
     return [];
   }
 
   List<String> _buildYoloUrlsToTry(String baseUrl) {
-    // Try multiple URL variations for better web compatibility
-    final urls = <String>[
-      'http://localhost:8000/detect',
-      'http://127.0.0.1:8000/detect',
-    ];
+    final urls = <String>[];
+    final normalizedBaseUrl = _normalizeYoloDetectUrl(baseUrl);
 
-    if (!urls.contains(baseUrl)) {
-      urls.insert(0, baseUrl);
+    void addUrl(String url) {
+      final normalized = _normalizeYoloDetectUrl(url);
+      if (normalized.isNotEmpty && !urls.contains(normalized)) {
+        urls.add(normalized);
+      }
+    }
+
+    addUrl(normalizedBaseUrl);
+    addUrl('http://localhost:8000/detect');
+    addUrl('http://127.0.0.1:8000/detect');
+    addUrl('http://localhost:8008/detect');
+    addUrl('http://127.0.0.1:8008/detect');
+    if (!kIsWeb) {
+      addUrl('http://10.0.2.2:8000/detect');
+      addUrl('http://10.0.2.2:8008/detect');
     }
 
     return urls;
+  }
+
+  String _normalizeYoloDetectUrl(String rawUrl) {
+    final trimmed = rawUrl.trim();
+    if (trimmed.isEmpty) return '';
+
+    if (trimmed.endsWith('/health')) {
+      return trimmed.substring(0, trimmed.length - '/health'.length) +
+          '/detect';
+    }
+
+    if (trimmed.endsWith('/detect')) {
+      return trimmed;
+    }
+
+    if (trimmed.endsWith('/')) {
+      return '${trimmed}detect';
+    }
+
+    return '$trimmed/detect';
+  }
+
+  List<_LabelSignal> _extractSignalsFromYoloResponse(dynamic responseBody) {
+    if (responseBody is! Map<String, dynamic>) {
+      return const [];
+    }
+
+    final detections = responseBody['detections'];
+    if (detections is List) {
+      final mapped = detections
+          .map((item) {
+            if (item is String) {
+              return _LabelSignal(label: item, confidence: 0.85);
+            }
+            if (item is! Map<String, dynamic>) return null;
+            final label = item['label'] as String? ?? item['food'] as String?;
+            if (label == null || label.trim().isEmpty) return null;
+            final confidence = (item['confidence'] as num?)?.toDouble() ?? 0.85;
+            return _LabelSignal(label: label, confidence: confidence);
+          })
+          .whereType<_LabelSignal>()
+          .toList();
+      if (mapped.isNotEmpty) return mapped;
+    }
+
+    final foods = responseBody['foods'];
+    if (foods is List) {
+      return foods
+          .whereType<String>()
+          .where((item) => item.trim().isNotEmpty)
+          .map((item) => _LabelSignal(label: item, confidence: 0.85))
+          .toList();
+    }
+
+    return const [];
+  }
+
+  List<DetectedFood> _buildFallbackDetectionsFromSignals(
+    List<_LabelSignal> signals, {
+    required String detectionMethod,
+  }) {
+    if (signals.isEmpty) return const [];
+
+    final ranked = signals.toList()
+      ..sort((a, b) => b.confidence.compareTo(a.confidence));
+
+    final seen = <String>{};
+    final fallback = <DetectedFood>[];
+    for (final signal in ranked) {
+      final normalized = _normalize(_fixCommonTypos(signal.label));
+      if (normalized.isEmpty || _ignoredGenericLabels.contains(normalized)) {
+        continue;
+      }
+      if (signal.confidence < _minDetectedSignalConfidence ||
+          seen.contains(normalized)) {
+        continue;
+      }
+      seen.add(normalized);
+
+      final food = _buildFallbackFood(signal.label, normalized);
+      fallback.add(
+        DetectedFood(
+          food: food,
+          estimatedGrams:
+              _estimateFallbackPortion(normalized, signal.confidence),
+          confidence: signal.confidence
+              .clamp(_minDetectedSignalConfidence, 0.99)
+              .toDouble(),
+          detectionMethod: detectionMethod,
+          sourceLabel: signal.label,
+        ),
+      );
+      if (fallback.length >= 6) break;
+    }
+
+    return fallback;
+  }
+
+  Food _buildFallbackFood(String rawLabel, String normalizedLabel) {
+    final display = _toTitleCase(
+      normalizedLabel.isNotEmpty ? normalizedLabel : rawLabel.toLowerCase(),
+    );
+    final macros = _fallbackMacros(normalizedLabel);
+    return Food(
+      id: 'fallback_${normalizedLabel.replaceAll(' ', '_')}',
+      name: display,
+      category: 'Detected',
+      subCategory: 'AI Fallback',
+      carbs100g: macros.$1,
+      protein100g: macros.$2,
+      fat100g: macros.$3,
+      fiber100g: macros.$4,
+      energyKcal: macros.$5,
+      servingSizeG: 100,
+      isLocal: true,
+      source: 'yolo-fallback',
+    );
+  }
+
+  (double, double, double, double, double) _fallbackMacros(String label) {
+    if (label.contains('rice') ||
+        label.contains('hopper') ||
+        label.contains('string') ||
+        label.contains('roti') ||
+        label.contains('kottu') ||
+        label.contains('noodle') ||
+        label.contains('bread')) {
+      return (28, 3, 1, 1, 130);
+    }
+
+    if (label.contains('chicken') ||
+        label.contains('fish') ||
+        label.contains('egg') ||
+        label.contains('beef') ||
+        label.contains('mutton') ||
+        label.contains('pork') ||
+        label.contains('curry')) {
+      return (4, 16, 9, 1, 160);
+    }
+
+    if (label.contains('sambol') ||
+        label.contains('mallum') ||
+        label.contains('salad') ||
+        label.contains('vegetable') ||
+        label.contains('beans') ||
+        label.contains('beetroot') ||
+        label.contains('pumpkin') ||
+        label.contains('potato') ||
+        label.contains('brinjal')) {
+      return (12, 3, 4, 4, 95);
+    }
+
+    return (15, 4, 3, 2, 110);
+  }
+
+  double _estimateFallbackPortion(String normalizedLabel, double confidence) {
+    var grams = 100.0;
+    if (normalizedLabel.contains('sambol') ||
+        normalizedLabel.contains('papadam') ||
+        normalizedLabel.contains('papadum')) {
+      grams = 35;
+    } else if (normalizedLabel.contains('curry')) {
+      grams = 120;
+    } else if (normalizedLabel.contains('rice') ||
+        normalizedLabel.contains('string') ||
+        normalizedLabel.contains('hopper') ||
+        normalizedLabel.contains('kottu') ||
+        normalizedLabel.contains('noodle')) {
+      grams = 180;
+    }
+
+    if (confidence < 0.5) {
+      grams *= 0.9;
+    } else if (confidence > 0.8) {
+      grams *= 1.1;
+    }
+    return grams.clamp(20.0, 300.0).toDouble();
+  }
+
+  String _toTitleCase(String value) {
+    final words = value.split(' ').where((w) => w.isNotEmpty);
+    return words
+        .map((w) => w.length == 1
+            ? w.toUpperCase()
+            : '${w[0].toUpperCase()}${w.substring(1)}')
+        .join(' ');
   }
 
   Future<void> dispose() async {
@@ -391,7 +612,7 @@ class FoodDetectionService {
     }
 
     // Allow very confident detections even if tokens are uncommon.
-    final allowByConfidence = maxConfidence >= 0.01;
+    final allowByConfidence = maxConfidence >= _minDetectedSignalConfidence;
     if (allowByConfidence) {
       print(
           '✓ Accepting due to high confidence: ${(maxConfidence * 100).toStringAsFixed(1)}%');
@@ -401,7 +622,7 @@ class FoodDetectionService {
     print(
         '✗ No plate-specific evidence found (max confidence: ${(maxConfidence * 100).toStringAsFixed(1)}%)');
     print(
-        '  Required: food tokens (${_plateSpecificEvidenceTokens.take(5).join(", ")}, ...) with ≥0.1% confidence OR any detection ≥1% confidence');
+        '  Required: food tokens (${_plateSpecificEvidenceTokens.take(5).join(", ")}, ...) with ≥0.1% confidence OR any detection ≥${(_minDetectedSignalConfidence * 100).toStringAsFixed(1)}% confidence');
     return false;
   }
 

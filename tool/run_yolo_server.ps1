@@ -1,7 +1,7 @@
 param(
 	[string]$ModelPath = "",
-	[double]$Confidence = 0.2,
-	[int]$Port = 8008,
+	[double]$Confidence = 0.15,
+	[int]$Port = 8000,
 	[switch]$AutoRestart,
 	[int]$RestartDelaySec = 2,
 	[int]$MaxRestarts = 20
@@ -83,13 +83,16 @@ function Get-PythonInvocation {
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projectRoot = (Resolve-Path (Join-Path $scriptDir "..")).Path
 $serverScript = Join-Path $projectRoot "tool\yolo_server.py"
+$defaultModelPath = Join-Path $projectRoot "backend\models\best.pt"
 
 if (-not (Test-Path $serverScript)) {
 	Write-Host "YOLO server script not found: $serverScript" -ForegroundColor Red
 	exit 1
 }
 
-if ($ModelPath) {
+if (-not $ModelPath -and (Test-Path $defaultModelPath)) {
+	$env:YOLO_MODEL_PATH = (Resolve-Path $defaultModelPath).Path
+} elseif ($ModelPath) {
 	$resolvedModelPath = $null
 	if (Test-Path $ModelPath) {
 		$resolvedModelPath = (Resolve-Path $ModelPath).Path
@@ -110,6 +113,12 @@ if ($ModelPath) {
 
 $env:YOLO_CONFIDENCE = "$Confidence"
 $env:YOLO_PORT = "$Port"
+if (-not $env:YOLO_LOW_CONF_FLOOR) {
+	$env:YOLO_LOW_CONF_FLOOR = "0.01"
+}
+if (-not $env:YOLO_ULTRA_LOW_CONF_FLOOR) {
+	$env:YOLO_ULTRA_LOW_CONF_FLOOR = "0.005"
+}
 
 
 $python = Get-PythonInvocation -ProjectRoot $projectRoot
@@ -142,9 +151,13 @@ if ($stalePid) {
 }
 
 Write-Host "Starting YOLO server..." -ForegroundColor Green
-Write-Host "Model: " + ($(if ($env:YOLO_MODEL_PATH) { $env:YOLO_MODEL_PATH } else { "yolo11n.pt (default)" })) -ForegroundColor Cyan
+Write-Host ("Model: " + ($(if ($env:YOLO_MODEL_PATH) { $env:YOLO_MODEL_PATH } else { "yolo11n.pt (default)" }))) -ForegroundColor Cyan
 Write-Host "Confidence: $env:YOLO_CONFIDENCE" -ForegroundColor Cyan
+Write-Host "Low confidence floor: $env:YOLO_LOW_CONF_FLOOR" -ForegroundColor Cyan
+Write-Host "Ultra-low confidence floor: $env:YOLO_ULTRA_LOW_CONF_FLOOR" -ForegroundColor Cyan
 Write-Host "Port: $env:YOLO_PORT" -ForegroundColor Cyan
+Write-Host "AI fallback enabled: $($(if ($env:AI_FALLBACK_ENABLED) { $env:AI_FALLBACK_ENABLED } else { "true" }))" -ForegroundColor Cyan
+Write-Host "OpenAI key loaded: $([bool]$env:OPENAI_API_KEY)" -ForegroundColor Cyan
 Write-Host "Python: $($python.Exe) $($python.Args -join ' ')" -ForegroundColor Cyan
 Write-Host "Health: http://127.0.0.1:$Port/health" -ForegroundColor Cyan
 if ($AutoRestart) {

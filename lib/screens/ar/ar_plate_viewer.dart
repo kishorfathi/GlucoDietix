@@ -73,7 +73,7 @@ class _ARPlateViewerScreenState extends State<ARPlateViewerScreen> {
   void _registerWebARView() {
     final payload = _buildWebPayload();
     final encoded = Uri.encodeComponent(jsonEncode(payload));
-    final src = 'ar_plate.html?data=$encoded';
+    final src = '/ar_plate.html?data=$encoded';
 
     WebIFrameView.register(
       viewType: _webViewId,

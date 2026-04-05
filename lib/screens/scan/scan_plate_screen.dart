@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -96,11 +97,16 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
 
     try {
       final foods = await _supabaseService.searchFoods();
-      final detected = await _detectionService.detectFoodsFromImage(
-        foods,
-        imageBytes: _imageBytes ?? Uint8List(0),
-        imagePath: imagePath,
-      );
+      final detected = kIsWeb
+          ? await _detectionService.detectFoodsFromWebBytes(
+              foods,
+              _imageBytes ?? Uint8List(0),
+            )
+          : await _detectionService.detectFoodsFromImage(
+              foods,
+              imageBytes: _imageBytes ?? Uint8List(0),
+              imagePath: imagePath,
+            );
 
       final portions = <String, double>{};
       final selected = <String>{};
@@ -122,7 +128,7 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
         _isDetecting = false;
         if (detected.isEmpty) {
           _mlNotice =
-              'No foods detected. Ensure YOLO backend is running at http://127.0.0.1:8000/health';
+              'No foods auto-detected. Use Add Missing Food below, or verify YOLO backend at http://127.0.0.1:8000/health (or 8008).';
         }
       });
     } catch (e) {
@@ -179,6 +185,51 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
         _selectedFoodIds.remove(foodId);
       }
     });
+  }
+
+  Future<void> _openManualAddFoods() async {
+    final selected = await Navigator.push<List<ManualSelectedFood>>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const FoodSearchScreen(selectionOnly: true),
+      ),
+    );
+
+    if (!mounted || selected == null || selected.isEmpty) return;
+
+    setState(() {
+      for (final item in selected) {
+        final existingIndex = _detectedFoods.indexWhere(
+          (detected) => detected.food.id == item.food.id,
+        );
+        final estimated = item.grams.clamp(20.0, 400.0).toDouble();
+
+        final manualDetected = DetectedFood(
+          food: item.food,
+          estimatedGrams: estimated,
+          confidence: 0.99,
+          detectionMethod: 'Manual Add',
+          sourceLabel: 'Added manually',
+        );
+
+        if (existingIndex >= 0) {
+          _detectedFoods[existingIndex] = manualDetected;
+        } else {
+          _detectedFoods.add(manualDetected);
+        }
+
+        _selectedFoodIds.add(item.food.id);
+        _selectedPortions[item.food.id] = estimated;
+      }
+      _mlNotice = null;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${selected.length} food item(s) added to plate'),
+        backgroundColor: Colors.green,
+      ),
+    );
   }
 
   double _targetCarbsForProfile(UserProfile? profile) {
@@ -380,7 +431,7 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
                         ),
                         SizedBox(height: 8),
                         Text('• Primary AI model for food recognition\n'
-                            '• Runs on local YOLO server (port 8000)\n'
+                            '• Runs on local YOLO server (port 8000 or 8008)\n'
                             '• Fast and accurate food detection'),
                         SizedBox(height: 16),
                         Text(
@@ -409,10 +460,10 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
                               fontWeight: FontWeight.bold, fontSize: 16),
                         ),
                         SizedBox(height: 8),
-                        Text('Start full stack for best detection:\n'
-                            'powershell -ExecutionPolicy Bypass -File .\\tool\\start_full_stack.ps1\n\n'
-                            'Or YOLO only:\n'
-                            'powershell -ExecutionPolicy Bypass -File .\\tool\\run_yolo_server.ps1'),
+                        Text('Start YOLO server:\n'
+                            'powershell -ExecutionPolicy Bypass -File .\\tool\\run_yolo_server.ps1\n\n'
+                            'Optional (force port 8000):\n'
+                            'powershell -ExecutionPolicy Bypass -File .\\tool\\run_yolo_server.ps1 -Port 8000'),
                       ],
                     ),
                   ),
@@ -544,6 +595,12 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
                                     _mlNotice ??
                                         'Try a clearer angle or add foods manually.',
                                   ),
+                                  const SizedBox(height: 10),
+                                  OutlinedButton.icon(
+                                    onPressed: _openManualAddFoods,
+                                    icon: const Icon(Icons.add),
+                                    label: const Text('Add Missing Food'),
+                                  ),
                                 ],
                               ),
                             ),
@@ -560,6 +617,12 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
                                       ?.copyWith(fontWeight: FontWeight.w700),
                                 ),
                               ),
+                              TextButton.icon(
+                                onPressed: _openManualAddFoods,
+                                icon: const Icon(Icons.add_circle_outline),
+                                label: const Text('Add Missing'),
+                              ),
+                              const SizedBox(width: 6),
                               // Measurement toggle
                               Container(
                                 padding: const EdgeInsets.all(3),
@@ -859,16 +922,9 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
                 ],
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const FoodSearchScreen(),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.restaurant),
-                  label: const Text('Manual Multi-Select'),
+                  onPressed: _openManualAddFoods,
+                  icon: const Icon(Icons.add),
+                  label: const Text('Add Missing Food'),
                 ),
                 const SizedBox(height: 8),
                 OutlinedButton.icon(

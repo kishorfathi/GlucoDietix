@@ -36,7 +36,7 @@ from ultralytics import YOLO
 from pathlib import Path
 import io
 import base64
-from PIL import Image
+from PIL import Image, ImageEnhance
 import uvicorn
 
 
@@ -46,6 +46,7 @@ import uvicorn
 
 PORT = 8000                    # Server port number
 CONFIDENCE_THRESHOLD = 0.15    # Minimum detection confidence (lowered for better detection)
+LOW_CONFIDENCE_FLOOR = 0.03    # Fallback confidence floor for hard images
 MODEL_PATH = Path(__file__).parent / "models" / "best.pt"  # Path to YOLO model
 
 
@@ -72,6 +73,49 @@ app.add_middleware(
 
 # Global variable to store the loaded YOLO model
 model = None
+
+
+def _extract_unique_detections(results, top_k: int):
+    detections = []
+    seen_labels = set()
+
+    for result in results:
+        boxes = result.boxes
+        if boxes is None or len(boxes) == 0:
+            continue
+        for box in boxes:
+            class_id = int(box.cls[0])
+            confidence = float(box.conf[0])
+            class_name = model.names[class_id]
+            if class_name in seen_labels:
+                continue
+            seen_labels.add(class_name)
+            detections.append({
+                "label": class_name,
+                "confidence": round(confidence, 3)
+            })
+
+    detections.sort(key=lambda x: x["confidence"], reverse=True)
+    return detections[:top_k]
+
+
+def _run_detection_with_fallback_passes(image: Image.Image, top_k: int):
+    passes = [
+        ("base", image, CONFIDENCE_THRESHOLD),
+        ("low_conf", image, max(LOW_CONFIDENCE_FLOOR, CONFIDENCE_THRESHOLD * 0.55)),
+        ("enhanced_low_conf",
+         ImageEnhance.Contrast(image).enhance(1.25),
+         max(LOW_CONFIDENCE_FLOOR, CONFIDENCE_THRESHOLD * 0.55)),
+    ]
+
+    for pass_name, pass_image, pass_conf in passes:
+        print(f"Running detect pass '{pass_name}' with conf={pass_conf:.3f}")
+        results = model(pass_image, conf=pass_conf)
+        detections = _extract_unique_detections(results, top_k)
+        print(f"Pass '{pass_name}' detections: {len(detections)}")
+        if detections:
+            return detections
+    return []
 
 
 # ==============================================================================
@@ -196,34 +240,7 @@ async def detect_food(request: DetectRequest):
             print(f"Base64 decode error: {decode_error}")
             raise HTTPException(status_code=400, detail="Invalid base64 image")
 
-        # Run YOLO detection on the image
-        results = model(image, conf=CONFIDENCE_THRESHOLD)
-
-        # Extract detected foods with confidence (format expected by Flutter app)
-        detections = []
-        seen_labels = set()
-
-        for result in results:
-            boxes = result.boxes
-
-            if boxes is not None and len(boxes) > 0:
-                for box in boxes:
-                    class_id = int(box.cls[0])
-                    confidence = float(box.conf[0])
-                    class_name = model.names[class_id]
-
-                    # Avoid duplicates - keep highest confidence for each label
-                    if class_name not in seen_labels:
-                        seen_labels.add(class_name)
-                        detections.append({
-                            "label": class_name,
-                            "confidence": round(confidence, 3)
-                        })
-                        print(f"  Detected: {class_name} ({confidence:.1%})")
-
-        # Sort by confidence and limit results
-        detections.sort(key=lambda x: x["confidence"], reverse=True)
-        detections = detections[:request.topK]
+        detections = _run_detection_with_fallback_passes(image, request.topK)
 
         print(f"Total detected: {len(detections)} food items")
 
@@ -267,32 +284,7 @@ async def detect_food_file(file: UploadFile = File(...)):
 
         print(f"Processing uploaded file: {file.filename}")
 
-        # Run YOLO detection on the image
-        results = model(image, conf=CONFIDENCE_THRESHOLD)
-
-        # Extract detected foods with confidence
-        detections = []
-        seen_labels = set()
-
-        for result in results:
-            boxes = result.boxes
-
-            if boxes is not None and len(boxes) > 0:
-                for box in boxes:
-                    class_id = int(box.cls[0])
-                    confidence = float(box.conf[0])
-                    class_name = model.names[class_id]
-
-                    if class_name not in seen_labels:
-                        seen_labels.add(class_name)
-                        detections.append({
-                            "label": class_name,
-                            "confidence": round(confidence, 3)
-                        })
-                        print(f"  Detected: {class_name} ({confidence:.1%})")
-
-        # Sort by confidence
-        detections.sort(key=lambda x: x["confidence"], reverse=True)
+        detections = _run_detection_with_fallback_passes(image, 25)
 
         print(f"Total detected: {len(detections)} food items")
 
@@ -333,26 +325,16 @@ async def detect_food_detailed(file: UploadFile = File(...)):
         contents = await file.read()
         image = Image.open(io.BytesIO(contents))
 
-        # Run detection
-        results = model(image, conf=CONFIDENCE_THRESHOLD)
-
-        # Extract detailed results
-        detections = []
-
-        for result in results:
-            boxes = result.boxes
-
-            if boxes is not None and len(boxes) > 0:
-                for box in boxes:
-                    class_id = int(box.cls[0])
-                    confidence = float(box.conf[0])
-                    class_name = model.names[class_id]
-
-                    detections.append({
-                        "food": class_name,
-                        "confidence": round(confidence, 3),
-                        "bbox": box.xyxy[0].tolist()
-                    })
+        # Run detection with confidence fallback
+        raw = _run_detection_with_fallback_passes(image, 50)
+        detections = [
+            {
+                "food": d["label"],
+                "confidence": d["confidence"],
+                "bbox": [],
+            }
+            for d in raw
+        ]
 
         return {
             "count": len(detections),

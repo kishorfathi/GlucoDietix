@@ -172,13 +172,34 @@ class _ResultsScreenState extends State<ResultsScreen> {
     final totalFat = mealProvider.totalFat;
     final totalFiber = mealProvider.totalFiber;
 
-    // Determine target carbs based on glucose range
+    final profile = profileProvider.userProfile;
+
+    // Determine diabetes-specific carb target.
     double targetCarbs = 60;
-    if (profileProvider.userProfile != null) {
-      if (profileProvider.userProfile!.glucoseRange == 'high') {
-        targetCarbs = 45;
+    if (profile != null) {
+      switch (profile.glucoseRange) {
+        case 'high':
+          targetCarbs = 45;
+          break;
+        case 'low':
+          targetCarbs = 70;
+          break;
+        default:
+          targetCarbs = profile.diabetes ? 50 : 60;
       }
     }
+
+    final diabetesFocus =
+        profile?.diabetes == true || profile?.glucoseRange == 'high';
+    final giValues = mealProvider.mealItems
+        .map((item) => item.food.glycemicIndex)
+        .whereType<double>()
+        .toList();
+    final avgGi = giValues.isEmpty
+        ? null
+        : giValues.reduce((a, b) => a + b) / giValues.length;
+    final hasHighGiFood = mealProvider.mealItems
+        .any((item) => (item.food.glycemicIndex ?? 0) >= 70);
 
     // Check if meal is OK
     final isOk = totalCarbs <= targetCarbs;
@@ -258,6 +279,17 @@ class _ResultsScreenState extends State<ResultsScreen> {
               ),
             ),
           ),
+
+          if (diabetesFocus) ...[
+            const SizedBox(height: 16),
+            _buildDiabetesVerdictCard(
+              totalCarbs: totalCarbs,
+              targetCarbs: targetCarbs,
+              avgGi: avgGi,
+              hasHighGiFood: hasHighGiFood,
+              analysis: analysis,
+            ),
+          ],
 
           // Plate Method Recommendations
           if (plateRecommendation.portions.isNotEmpty) ...[
@@ -1207,6 +1239,68 @@ class _ResultsScreenState extends State<ResultsScreen> {
             child: const Text('Got it!'),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildDiabetesVerdictCard({
+    required double totalCarbs,
+    required double targetCarbs,
+    required double? avgGi,
+    required bool hasHighGiFood,
+    required MealAnalysis analysis,
+  }) {
+    final carbsOk = totalCarbs <= targetCarbs;
+    final giOk = !hasHighGiFood;
+    final scoreOk = analysis.healthScore >= 60;
+    final isGoodForDiabetes = carbsOk && giOk && scoreOk;
+
+    final verdictColor = isGoodForDiabetes ? Colors.green : Colors.orange;
+    final verdictIcon =
+        isGoodForDiabetes ? Icons.check_circle : Icons.warning_amber;
+    final verdictText = isGoodForDiabetes
+        ? 'Good for your diabetes profile'
+        : 'Needs adjustment for better glucose control';
+
+    final reasons = <String>[
+      'Carbs: ${totalCarbs.toStringAsFixed(1)}g (target <= ${targetCarbs.toStringAsFixed(0)}g)',
+      if (avgGi != null) 'Average GI: ${avgGi.toStringAsFixed(0)}',
+      if (hasHighGiFood) 'High-GI items detected in this meal',
+      if (!scoreOk) 'Health score is below recommended range for diabetes',
+    ];
+
+    return Card(
+      color: verdictColor.shade50,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(verdictIcon, color: verdictColor.shade700),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    verdictText,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: verdictColor.shade800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            ...reasons.map(
+              (reason) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Text(reason, style: const TextStyle(fontSize: 14)),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

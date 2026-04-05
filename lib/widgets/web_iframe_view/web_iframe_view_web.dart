@@ -16,7 +16,7 @@ void registerWebIFrameView({
         ..style.border = 'none'
         ..style.width = '100%'
         ..style.height = '100%'
-        ..allow = allowCamera ? 'camera' : '';
+        ..allow = allowCamera ? 'camera; microphone; autoplay; fullscreen' : '';
       return iframe;
     },
   );

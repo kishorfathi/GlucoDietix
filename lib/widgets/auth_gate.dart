@@ -15,13 +15,8 @@ class AuthGate extends StatelessWidget {
     final authProvider = Provider.of<AuthProvider>(context);
     final profileProvider = Provider.of<UserProfileProvider>(context);
 
-    debugPrint('AuthGate: isAuthenticated=${authProvider.isAuthenticated}');
-    debugPrint('AuthGate: isLoading=${profileProvider.isLoading}');
-    debugPrint('AuthGate: hasProfile=${profileProvider.userProfile != null}');
-
     // Not authenticated - show login screen
     if (!authProvider.isAuthenticated) {
-      debugPrint('AuthGate: Showing LoginScreen');
       if (profileProvider.loadedUserId != null ||
           profileProvider.userProfile != null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -34,11 +29,9 @@ class AuthGate extends StatelessWidget {
 
     // User is authenticated
     final userId = authProvider.user!.id;
-    debugPrint('AuthGate: Authenticated userId=$userId');
 
     // Load user profile if not loaded yet (non-blocking UI)
     if (!profileProvider.isLoadedFor(userId) && !profileProvider.isLoading) {
-      debugPrint('AuthGate: Loading profile for $userId');
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!context.mounted) return;
         context.read<UserProfileProvider>().loadUserProfile(userId);
@@ -47,18 +40,15 @@ class AuthGate extends StatelessWidget {
 
     // While profile is loading, show the dashboard to reduce perceived load time
     if (profileProvider.isLoading) {
-      debugPrint('AuthGate: Profile loading, showing HomeDashboardScreen');
       return const HomeDashboardScreen();
     }
 
     // If profile doesn't exist, show profile setup screen
     if (profileProvider.userProfile == null) {
-      debugPrint('AuthGate: No profile found, showing ProfileScreen');
       return const ProfileScreen(forceInitialSetup: true);
     }
 
     // Profile loaded - show main screen
-    debugPrint('AuthGate: Showing HomeDashboardScreen');
     return const HomeDashboardScreen();
   }
 }

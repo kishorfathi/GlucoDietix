@@ -56,17 +56,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           Provider.of<UserProfileProvider>(context, listen: false).userProfile;
 
       if (profile != null) {
-        debugPrint('Loading glucose readings for user: ${profile.id}');
-
         // Load recent glucose readings
         final readings =
             await _supabaseService.getGlucoseReadings(profile.id, limit: 10);
-
-        debugPrint('Loaded ${readings.length} glucose readings');
-        for (var reading in readings) {
-          debugPrint(
-              '  - ${reading.glucoseLevel} mg/dL at ${reading.timestamp}');
-        }
 
         GlucoseAlert? alert;
         if (readings.isNotEmpty) {
@@ -83,11 +75,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           _recentReadings = readings;
           _currentAlert = alert;
         });
-      } else {
-        debugPrint('No user profile found');
       }
     } catch (e) {
-      debugPrint('Error loading dashboard data: $e');
+      // Keep dashboard usable even if remote fetch fails.
     } finally {
       setState(() => _isLoading = false);
     }

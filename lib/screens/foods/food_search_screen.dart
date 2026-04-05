@@ -8,7 +8,12 @@ import '../../services/supabase_service.dart';
 import '../../widgets/loading_indicator.dart';
 
 class FoodSearchScreen extends StatefulWidget {
-  const FoodSearchScreen({super.key});
+  final bool selectionOnly;
+
+  const FoodSearchScreen({
+    super.key,
+    this.selectionOnly = false,
+  });
 
   @override
   State<FoodSearchScreen> createState() => _FoodSearchScreenState();
@@ -259,11 +264,12 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
                       child: FilledButton.icon(
                         onPressed: () {
                           Navigator.pop(context);
-                          _addSelectedFoods();
+                          _submitSelectedFoods();
                         },
                         icon: const Icon(Icons.done_all),
-                        label:
-                            Text('Add ${_selectedFoods.length} Foods to Meal'),
+                        label: Text(widget.selectionOnly
+                            ? 'Add ${_selectedFoods.length} Foods to Plate'
+                            : 'Add ${_selectedFoods.length} Foods to Meal'),
                       ),
                     ),
                   ],
@@ -318,7 +324,22 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
     );
   }
 
-  void _addSelectedFoods() {
+  void _submitSelectedFoods() {
+    if (widget.selectionOnly) {
+      final selected = _selectedFoods.values
+          .map(
+            (food) => ManualSelectedFood(
+              food: food,
+              grams: (_selectedPortions[food.id] ?? 100)
+                  .clamp(20.0, 400.0)
+                  .toDouble(),
+            ),
+          )
+          .toList();
+      Navigator.pop(context, selected);
+      return;
+    }
+
     final mealProvider = Provider.of<MealProvider>(context, listen: false);
 
     for (final food in _selectedFoods.values) {
@@ -554,10 +575,22 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
                 child: FilledButton.icon(
                   onPressed: _showPortionEditor,
                   icon: const Icon(Icons.add_chart),
-                  label: Text('Review and Add ${_selectedFoods.length} Foods'),
+                  label: Text(widget.selectionOnly
+                      ? 'Review and Add ${_selectedFoods.length} Foods to Plate'
+                      : 'Review and Add ${_selectedFoods.length} Foods'),
                 ),
               ),
             ),
     );
   }
+}
+
+class ManualSelectedFood {
+  final Food food;
+  final double grams;
+
+  const ManualSelectedFood({
+    required this.food,
+    required this.grams,
+  });
 }

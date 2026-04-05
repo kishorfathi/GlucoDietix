@@ -12,6 +12,7 @@ import '../../providers/user_profile_provider.dart';
 import '../../services/food_detection_service.dart';
 import '../../services/health_recommendation_service.dart';
 import '../../services/supabase_service.dart';
+import '../foods/food_search_screen.dart';
 import '../meal/results_screen.dart';
 import 'web_live_camera_controller_stub.dart'
     if (dart.library.html) 'web_live_camera_controller.dart';
@@ -202,10 +203,6 @@ class _LiveScanPlateScreenState extends State<LiveScanPlateScreen> {
       );
 
       if (!mounted) return;
-      if (detected.isEmpty) {
-        _mlNotice ??=
-            'No detections yet. Start YOLO with: powershell -ExecutionPolicy Bypass -File .\\tool\\start_full_stack.ps1';
-      }
       _updateDetections(detected);
     } catch (e) {
       if (!mounted) return;
@@ -264,6 +261,19 @@ class _LiveScanPlateScreenState extends State<LiveScanPlateScreen> {
   }
 
   void _updateDetections(List<DetectedFood> detected) {
+    if (detected.isEmpty) {
+      setState(() {
+        _detectedFoods = const [];
+        _selectedFoodIds.clear();
+        _selectedPortions.clear();
+        _mealItems = const [];
+        _analysis = null;
+        _mlNotice =
+            'No food detected in frame. Point camera at your plate and keep it steady.';
+      });
+      return;
+    }
+
     final profile =
         Provider.of<UserProfileProvider>(context, listen: false).userProfile;
 
@@ -299,6 +309,7 @@ class _LiveScanPlateScreenState extends State<LiveScanPlateScreen> {
         ..addAll(portions);
       _mealItems = items;
       _analysis = analysis;
+      _mlNotice = null;
     });
   }
 
@@ -311,6 +322,52 @@ class _LiveScanPlateScreenState extends State<LiveScanPlateScreen> {
       }
       _rebuildMealItems();
     });
+  }
+
+  Future<void> _openManualAddFoods() async {
+    final selected = await Navigator.push<List<ManualSelectedFood>>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const FoodSearchScreen(selectionOnly: true),
+      ),
+    );
+
+    if (!mounted || selected == null || selected.isEmpty) return;
+
+    setState(() {
+      for (final item in selected) {
+        final existingIndex = _detectedFoods.indexWhere(
+          (detected) => detected.food.id == item.food.id,
+        );
+
+        final estimated = item.grams.clamp(20.0, 400.0).toDouble();
+        final manualDetected = DetectedFood(
+          food: item.food,
+          estimatedGrams: estimated,
+          confidence: 0.99,
+          detectionMethod: 'Manual Add',
+          sourceLabel: 'Added manually',
+        );
+
+        if (existingIndex >= 0) {
+          _detectedFoods[existingIndex] = manualDetected;
+        } else {
+          _detectedFoods.add(manualDetected);
+        }
+
+        _selectedFoodIds.add(item.food.id);
+        _selectedPortions[item.food.id] = estimated;
+      }
+      _mlNotice = null;
+      _rebuildMealItems();
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${selected.length} food item(s) added'),
+        backgroundColor: Colors.green,
+      ),
+    );
   }
 
   void _rebuildMealItems() {
@@ -632,6 +689,10 @@ class _LiveScanPlateScreenState extends State<LiveScanPlateScreen> {
                 ),
               ),
               const Spacer(),
+              TextButton(
+                onPressed: _openManualAddFoods,
+                child: const Text('Add Missing'),
+              ),
               if (_mealItems.isNotEmpty)
                 TextButton(
                   onPressed: _addToMealAndAnalyze,
