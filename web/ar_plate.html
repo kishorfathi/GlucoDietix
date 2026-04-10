@@ -64,8 +64,9 @@
       width: min(68vw, 340px);
       height: min(68vw, 340px);
       transform: translate(-50%, -50%);
-      pointer-events: none;
+      pointer-events: auto;
       filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.55));
+      z-index: 3;
     }
 
     #topCard, #bottomCard {
@@ -432,12 +433,12 @@
       const PLATE_UNITS = 4;
       let usedUnits = 0;
 
-      // Draw base track
+      // Draw base track (kept intentionally brighter so users always see the guide).
       ctx.beginPath();
       ctx.arc(cx, cy, radius, 0, Math.PI * 2);
       ctx.arc(cx, cy, radius - ringWidth, Math.PI * 2, 0, true);
       ctx.closePath();
-      ctx.fillStyle = 'rgba(130, 155, 195, 0.20)';
+      ctx.fillStyle = 'rgba(130, 155, 195, 0.34)';
       ctx.fill();
 
       let start = -Math.PI / 2;
@@ -476,6 +477,18 @@
       ctx.strokeStyle = 'rgba(230, 241, 255, 0.5)';
       ctx.lineWidth = 2;
       ctx.stroke();
+
+      // Draw quadrant guide lines so a 4-part plate is visible even with sparse data.
+      ctx.beginPath();
+      ctx.moveTo(cx - radius, cy);
+      ctx.lineTo(cx + radius, cy);
+      ctx.moveTo(cx, cy - radius);
+      ctx.lineTo(cx, cy + radius);
+      ctx.strokeStyle = 'rgba(230, 241, 255, 0.38)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([6, 6]);
+      ctx.stroke();
+      ctx.setLineDash([]);
 
       ctx.fillStyle = 'rgba(5, 12, 23, 0.78)';
       ctx.beginPath();
@@ -741,9 +754,13 @@
       setupDragRotation();
       setupControls();
       startCamera();
+      setStatus('Loading AR plate...');
 
       try {
         renderItems(gState.items);
+        if (!gState.items.length) {
+          setStatus('Camera active. No foods selected yet.');
+        }
       } catch (error) {
         setStatus('AR loaded with limited details.');
       }

@@ -830,7 +830,8 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
                                       value: (currentPortion / maxLimit)
                                           .clamp(0.0, 1.0),
                                       minHeight: 6,
-                                      backgroundColor: scheme.surfaceContainerHighest,
+                                      backgroundColor:
+                                          scheme.surfaceContainerHighest,
                                       valueColor: AlwaysStoppedAnimation(
                                         isOverLimit
                                             ? Colors.red

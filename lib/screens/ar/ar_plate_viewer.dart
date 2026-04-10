@@ -46,7 +46,8 @@ class _ARPlateViewerScreenState extends State<ARPlateViewerScreen> {
     };
     _gramsById = {
       for (final item in widget.items)
-        item.food.id: (widget.currentGramsByFoodId?[item.food.id] ?? item.grams),
+        item.food.id:
+            (widget.currentGramsByFoodId?[item.food.id] ?? item.grams),
     };
     _recommendedById = {
       for (final item in widget.items)
@@ -88,7 +89,8 @@ class _ARPlateViewerScreenState extends State<ARPlateViewerScreen> {
   Map<String, dynamic> _buildWebPayload() {
     final currentItems = _currentItems();
     final recommendedItems = _recommendedItems();
-    final recommendation = _plateService.getPlateRecommendations(recommendedItems);
+    final recommendation =
+        _plateService.getPlateRecommendations(recommendedItems);
     return {
       'title': 'Live AR Plate',
       'items': currentItems
