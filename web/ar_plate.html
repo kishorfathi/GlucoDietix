@@ -171,6 +171,145 @@
       display: inline-block;
       margin-right: 5px;
     }
+
+    .item.interactive {
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: 1px solid rgba(153, 176, 214, 0.4);
+    }
+
+    .item.interactive:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: var(--accent);
+      transform: translateX(2px);
+    }
+
+    .item.interactive.hidden {
+      opacity: 0.4;
+      text-decoration: line-through;
+    }
+
+    .item.expanded {
+      background: rgba(40, 184, 255, 0.1);
+      border-color: var(--accent);
+    }
+
+    .itemDetails {
+      display: none;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(153, 176, 214, 0.2);
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .itemDetails.show {
+      display: block;
+    }
+
+    .nutritionRow {
+      display: flex;
+      justify-content: space-between;
+      margin: 3px 0;
+    }
+
+    .portionSlider {
+      margin-top: 6px;
+      width: 100%;
+    }
+
+    .portionSlider input {
+      width: 100%;
+      height: 4px;
+      cursor: pointer;
+      accent-color: var(--accent);
+    }
+
+    .controls {
+      position: absolute;
+      bottom: 12px;
+      right: 12px;
+      display: flex;
+      gap: 6px;
+      z-index: 10;
+    }
+
+    .controlBtn {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 1px solid var(--accent);
+      background: rgba(40, 184, 255, 0.15);
+      color: var(--accent);
+      cursor: pointer;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      font-weight: bold;
+    }
+
+    .controlBtn:hover {
+      background: rgba(40, 184, 255, 0.25);
+      transform: scale(1.05);
+    }
+
+    .controlBtn:active {
+      transform: scale(0.95);
+    }
+
+    #plateRotation {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.4);
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .summary {
+      padding: 8px 10px;
+      background: rgba(40, 184, 255, 0.08);
+      border: 1px solid rgba(40, 184, 255, 0.3);
+      border-radius: 8px;
+      margin-bottom: 8px;
+      font-size: 11px;
+    }
+
+    .summaryRow {
+      display: flex;
+      justify-content: space-between;
+      margin: 2px 0;
+    }
+
+    .tooltipIcon {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      margin-left: 4px;
+      color: var(--accent);
+      cursor: help;
+    }
+
+    #touchHint {
+      position: absolute;
+      bottom: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.5);
+      white-space: nowrap;
+      pointer-events: none;
+      animation: fadeInOut 3s infinite;
+    }
+
+    @keyframes fadeInOut {
+      0%, 100% { opacity: 0; }
+      50% { opacity: 1; }
+    }
   </style>
 </head>
 <body>
@@ -180,6 +319,8 @@
     <div id="vignette"></div>
 
     <div id="status">Starting camera...</div>
+    <div id="plateRotation">Drag to rotate</div>
+    <div id="touchHint">Tap items to see details</div>
 
     <div id="topCard">
       <div id="title">AR Plate Portion Guide</div>
@@ -193,11 +334,29 @@
     </div>
 
     <div id="bottomCard">
+      <div id="summary" class="summary"></div>
       <div id="items"></div>
+    </div>
+
+    <div class="controls">
+      <button class="controlBtn" id="btnReset" title="Reset portions to recommended">↻</button>
+      <button class="controlBtn" id="btnToggle" title="Hide/show all items">◉</button>
     </div>
   </div>
 
   <script>
+    // Global state
+    let gState = {
+      items: [],
+      segments: [],
+      itemGrams: {},
+      itemHidden: {},
+      expandedItem: null,
+      plateRotation: 0,
+      isDragging: false,
+      dragStartX: 0,
+    };
+
     function parsePayload() {
       try {
         const params = new URLSearchParams(window.location.search);
@@ -228,10 +387,32 @@
       if (status) status.textContent = text;
     }
 
+    function getActiveItems() {
+      return gState.items.filter((item, idx) => !gState.itemHidden[idx]);
+    }
+
+    function getActiveSegments() {
+      const active = getActiveItems();
+      return gState.segments.filter((seg) => {
+        const foodCount = active.filter((item) => 
+          String(item.category || '').toLowerCase().includes(String(seg.category || '').toLowerCase())
+        ).length;
+        return foodCount > 0;
+      });
+    }
+
     function drawPlate(segments) {
       const canvas = document.getElementById('plate');
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
+
+      const drawSegments = (Array.isArray(segments) && segments.length > 0)
+        ? segments
+        : [
+            { category: 'vegetable', portionCount: 2 },
+            { category: 'protein', portionCount: 1 },
+            { category: 'rice', portionCount: 1 },
+          ];
 
       const width = canvas.width;
       const height = canvas.height;
@@ -242,14 +423,33 @@
 
       ctx.clearRect(0, 0, width, height);
 
-      const total = segments.reduce((sum, s) => sum + Math.max(0, Number(s.portionCount) || 0), 0);
-      const safeTotal = total > 0 ? total : 1;
+      // Apply rotation
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate((gState.plateRotation * Math.PI) / 180);
+      ctx.translate(-cx, -cy);
+
+      const PLATE_UNITS = 4;
+      let usedUnits = 0;
+
+      // Draw base track
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      ctx.arc(cx, cy, radius - ringWidth, Math.PI * 2, 0, true);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(130, 155, 195, 0.20)';
+      ctx.fill();
 
       let start = -Math.PI / 2;
-      segments.forEach((segment) => {
+      drawSegments.forEach((segment) => {
         const value = Math.max(0, Number(segment.portionCount) || 0);
         if (value <= 0) return;
-        const angle = (value / safeTotal) * Math.PI * 2;
+
+        const remainingUnits = Math.max(0, PLATE_UNITS - usedUnits);
+        const clampedValue = Math.min(value, remainingUnits);
+        if (clampedValue <= 0) return;
+
+        const angle = (clampedValue / PLATE_UNITS) * Math.PI * 2;
         const end = start + angle;
 
         ctx.beginPath();
@@ -262,6 +462,7 @@
         ctx.globalAlpha = 1;
 
         start = end;
+        usedUnits += clampedValue;
       });
 
       ctx.beginPath();
@@ -288,6 +489,31 @@
       ctx.font = '500 15px Segoe UI, Arial, sans-serif';
       ctx.fillStyle = '#b5c8e8';
       ctx.fillText('portion guide', cx, cy + 20);
+
+      ctx.restore();
+    }
+
+    function updateSummary() {
+      const active = getActiveItems();
+      const totalGrams = active.reduce((sum, item, idx) => {
+        if (!gState.itemHidden[idx]) {
+          return sum + (gState.itemGrams[idx] || item.grams || 0);
+        }
+        return sum;
+      }, 0);
+      const totalRecommended = active.reduce((sum, item) => sum + (item.recommended || 0), 0);
+
+      const summary = document.getElementById('summary');
+      const ratio = totalRecommended > 0 ? totalGrams / totalRecommended : 1;
+      const ratio100 = Math.round(ratio * 100);
+      const ratioColor = ratio <= 1.1 ? '#6bffb8' : ratio <= 1.3 ? '#ffd074' : '#ff9191';
+
+      summary.innerHTML = `
+        <div class="summaryRow">
+          <span>Total: ${totalGrams.toFixed(0)}g / ${totalRecommended.toFixed(0)}g</span>
+          <span style="color: ${ratioColor}; font-weight: 600;">${ratio100}%</span>
+        </div>
+      `;
     }
 
     function renderItems(items) {
@@ -301,25 +527,182 @@
         return;
       }
 
-      items.forEach((item) => {
-        const grams = Number(item.grams) || 0;
-        const recommended = Number(item.recommended) || 0;
+      items.forEach((item, idx) => {
+        const grams = gState.itemGrams[idx] !== undefined ? gState.itemGrams[idx] : item.grams;
+        const recommended = item.recommended || 0;
         const diff = grams - recommended;
         const ratio = recommended > 0 ? grams / recommended : 1;
+        const ratioPercent = Math.round(ratio * 100);
         const deltaClass = ratio <= 1.1 ? 'deltaGood' : ratio <= 1.3 ? 'deltaWarn' : 'deltaBad';
         const diffLabel = diff >= 0 ? `+${diff.toFixed(0)} g` : `${diff.toFixed(0)} g`;
+        const isHidden = gState.itemHidden[idx];
+        const isExpanded = gState.expandedItem === idx;
 
         const node = document.createElement('div');
-        node.className = 'item';
-        node.innerHTML = `
-          <div class="itemHead">
-            <span>${item.name || 'Food item'}</span>
-            <span class="${deltaClass}">${diffLabel}</span>
-          </div>
-          <div>Current: ${grams.toFixed(0)} g | Recommended: ${recommended.toFixed(0)} g</div>
+        node.className = `item interactive ${isHidden ? 'hidden' : ''} ${isExpanded ? 'expanded' : ''}`;
+        node.dataset.index = idx;
+
+        const head = document.createElement('div');
+        head.className = 'itemHead';
+        head.innerHTML = `
+          <span>${item.name || 'Food item'}</span>
+          <span class="${deltaClass}">${diffLabel}</span>
         `;
+
+        const main = document.createElement('div');
+        main.textContent = `Current: ${grams.toFixed(0)} g | Recommended: ${recommended.toFixed(0)} g`;
+
+        node.appendChild(head);
+        node.appendChild(main);
+
+        // Expandable details
+        const details = document.createElement('div');
+        details.className = `itemDetails ${isExpanded ? 'show' : ''}`;
+        details.innerHTML = `
+          <div class="nutritionRow">
+            <span>Status:</span>
+            <span class="${deltaClass}">${ratioPercent}% of recommended</span>
+          </div>
+          <div class="nutritionRow">
+            <span>Adjust portion:</span>
+          </div>
+          <div class="portionSlider">
+            <input type="range" min="0" max="${recommended * 2}" step="5" value="${grams}" class="gramSlider">
+          </div>
+        `;
+
+        node.appendChild(details);
+
+        // Click to toggle expand
+        head.style.cursor = 'pointer';
+        head.addEventListener('click', (e) => {
+          e.stopPropagation();
+          gState.expandedItem = gState.expandedItem === idx ? null : idx;
+          renderItems(items);
+        });
+
+        // Toggle hidden on long click or double click
+        node.addEventListener('dblclick', (e) => {
+          e.stopPropagation();
+          gState.itemHidden[idx] = !gState.itemHidden[idx];
+          const segments = getActiveSegments();
+          renderItems(items);
+          drawPlate(segments);
+          updateSummary();
+        });
+
+        // Slider for gram adjustment
+        const slider = node.querySelector('.gramSlider');
+        if (slider) {
+          slider.addEventListener('input', (e) => {
+            gState.itemGrams[idx] = Number(e.target.value);
+            const segments = getActiveSegments();
+            renderItems(items);
+            drawPlate(segments);
+            updateSummary();
+          });
+        }
+
         root.appendChild(node);
       });
+
+      updateSummary();
+    }
+
+    function handlePlateClick(e) {
+      const canvas = document.getElementById('plate');
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      // Detect if click is near the plate area
+      const cx = rect.width / 2;
+      const cy = rect.height / 2;
+      const clickDist = Math.sqrt((x - cx) ** 2 + (y - cy) ** 2);
+      const ringStart = rect.width * 0.21;
+      const ringEnd = rect.width * 0.42;
+
+      if (clickDist >= ringStart && clickDist <= ringEnd) {
+        // Click on plate - could rotate or show tooltip
+        setStatus('Drag the plate to rotate it');
+      }
+    }
+
+    function setupDragRotation() {
+      const canvas = document.getElementById('plate');
+
+      canvas.addEventListener('mousedown', (e) => {
+        gState.isDragging = true;
+        gState.dragStartX = e.clientX;
+      });
+
+      document.addEventListener('mousemove', (e) => {
+        if (gState.isDragging) {
+          const delta = e.clientX - gState.dragStartX;
+          gState.plateRotation += delta * 0.5;
+          gState.dragStartX = e.clientX;
+
+          const segments = getActiveSegments();
+          drawPlate(segments);
+        }
+      });
+
+      document.addEventListener('mouseup', () => {
+        gState.isDragging = false;
+      });
+
+      // Touch support for mobile
+      canvas.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 1) {
+          gState.isDragging = true;
+          gState.dragStartX = e.touches[0].clientX;
+        }
+      });
+
+      document.addEventListener('touchmove', (e) => {
+        if (gState.isDragging && e.touches.length === 1) {
+          const delta = e.touches[0].clientX - gState.dragStartX;
+          gState.plateRotation += delta * 0.5;
+          gState.dragStartX = e.touches[0].clientX;
+
+          const segments = getActiveSegments();
+          drawPlate(segments);
+        }
+      });
+
+      document.addEventListener('touchend', () => {
+        gState.isDragging = false;
+      });
+    }
+
+    function setupControls() {
+      const btnReset = document.getElementById('btnReset');
+      const btnToggle = document.getElementById('btnToggle');
+
+      if (btnReset) {
+        btnReset.addEventListener('click', () => {
+          gState.itemGrams = {};
+          gState.itemHidden = {};
+          gState.expandedItem = null;
+          const segments = getActiveSegments();
+          renderItems(gState.items);
+          drawPlate(segments);
+          setStatus('Reset to recommended portions');
+        });
+      }
+
+      if (btnToggle) {
+        btnToggle.addEventListener('click', () => {
+          const allHidden = gState.items.every((_, idx) => gState.itemHidden[idx]);
+          gState.items.forEach((_, idx) => {
+            gState.itemHidden[idx] = !allHidden;
+          });
+          const segments = getActiveSegments();
+          renderItems(gState.items);
+          drawPlate(segments);
+          setStatus(allHidden ? 'All items visible' : 'All items hidden');
+        });
+      }
     }
 
     async function startCamera() {
@@ -348,9 +731,22 @@
 
     (function init() {
       const data = parsePayload();
-      renderItems(data.items);
-      drawPlate(data.segments);
+      gState.items = data.items;
+      gState.segments = data.segments;
+      gState.itemGrams = {};
+      gState.itemHidden = {};
+
+      // Ensure plate and camera always initialize even if item rendering throws.
+      drawPlate(gState.segments);
+      setupDragRotation();
+      setupControls();
       startCamera();
+
+      try {
+        renderItems(gState.items);
+      } catch (error) {
+        setStatus('AR loaded with limited details.');
+      }
     })();
   </script>
 </body>

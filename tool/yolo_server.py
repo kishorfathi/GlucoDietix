@@ -246,12 +246,25 @@ def _extract_detections_from_results(results, top_k: int):
 
 def _detect_with_fallback_passes(image, top_k: int):
     adaptive_low_conf = max(LOW_CONFIDENCE_FLOOR, CONFIDENCE * 0.55)
+
+    def _center_crop(src, crop_ratio: float = 0.82):
+        width, height = src.size
+        crop_width = max(1, int(width * crop_ratio))
+        crop_height = max(1, int(height * crop_ratio))
+        left = max(0, (width - crop_width) // 2)
+        top = max(0, (height - crop_height) // 2)
+        right = min(width, left + crop_width)
+        bottom = min(height, top + crop_height)
+        return src.crop((left, top, right, bottom))
+
     passes = [
         ("base", image, CONFIDENCE),
         ("adaptive_low_conf", image, adaptive_low_conf),
         ("enhanced_adaptive_low_conf", ImageEnhance.Contrast(image).enhance(1.25), adaptive_low_conf),
+        ("center_crop_adaptive_low_conf", _center_crop(image), adaptive_low_conf),
         ("low_floor_conf", image, LOW_CONFIDENCE_FLOOR),
         ("enhanced_low_floor_conf", ImageEnhance.Contrast(image).enhance(1.35), LOW_CONFIDENCE_FLOOR),
+        ("center_crop_low_floor_conf", _center_crop(image), LOW_CONFIDENCE_FLOOR),
         ("ultra_low_floor_conf", image, ULTRA_LOW_CONFIDENCE_FLOOR),
         ("enhanced_ultra_low_floor_conf", ImageEnhance.Contrast(image).enhance(1.5), ULTRA_LOW_CONFIDENCE_FLOOR),
     ]

@@ -1,6 +1,6 @@
 param(
 	[string]$ModelPath = "",
-	[double]$Confidence = 0.15,
+	[double]$Confidence = 0.10,
 	[int]$Port = 8000,
 	[switch]$AutoRestart,
 	[int]$RestartDelaySec = 2,

@@ -191,7 +191,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                     const SizedBox(height: 12),
                     _buildFeatureCard(
                       icon: Icons.restaurant_menu,
-                      title: 'AI Meal Recommendations',
+                      title: 'Meal Recommendations',
                       description:
                           'Get personalized meal plans based on your health data',
                       color: Colors.green,

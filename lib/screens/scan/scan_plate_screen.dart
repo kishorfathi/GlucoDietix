@@ -958,12 +958,19 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
     }
 
     final items = _selectedMealItems();
+    final currentGramsByFoodId = <String, double>{
+      for (final detected in _detectedFoods)
+        if (_selectedFoodIds.contains(detected.food.id))
+          detected.food.id: detected.estimatedGrams,
+    };
+
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => ARPlateViewerScreen(
           items: items,
           profile: profile,
+          currentGramsByFoodId: currentGramsByFoodId,
         ),
       ),
     );

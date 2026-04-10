@@ -12,11 +12,13 @@ import '../../services/plate_method_service.dart';
 class ARPlateViewerScreen extends StatefulWidget {
   final List<MealItem> items;
   final UserProfile? profile;
+  final Map<String, double>? currentGramsByFoodId;
 
   const ARPlateViewerScreen({
     super.key,
     required this.items,
     required this.profile,
+    this.currentGramsByFoodId,
   });
 
   @override
@@ -43,7 +45,8 @@ class _ARPlateViewerScreenState extends State<ARPlateViewerScreen> {
       for (final item in widget.items) item.food.id: item,
     };
     _gramsById = {
-      for (final item in widget.items) item.food.id: item.grams,
+      for (final item in widget.items)
+        item.food.id: (widget.currentGramsByFoodId?[item.food.id] ?? item.grams),
     };
     _recommendedById = {
       for (final item in widget.items)
@@ -83,11 +86,12 @@ class _ARPlateViewerScreenState extends State<ARPlateViewerScreen> {
   }
 
   Map<String, dynamic> _buildWebPayload() {
-    final items = _currentItems();
-    final recommendation = _plateService.getPlateRecommendations(items);
+    final currentItems = _currentItems();
+    final recommendedItems = _recommendedItems();
+    final recommendation = _plateService.getPlateRecommendations(recommendedItems);
     return {
       'title': 'Live AR Plate',
-      'items': items
+      'items': currentItems
           .map((item) => {
                 'name': item.food.name,
                 'grams': _gramsById[item.food.id] ?? item.grams,
@@ -172,6 +176,17 @@ class _ARPlateViewerScreenState extends State<ARPlateViewerScreen> {
           (item) => MealItem(
             food: item.food,
             grams: _gramsById[item.food.id] ?? item.grams,
+          ),
+        )
+        .toList();
+  }
+
+  List<MealItem> _recommendedItems() {
+    return _itemsById.values
+        .map(
+          (item) => MealItem(
+            food: item.food,
+            grams: _recommendedById[item.food.id] ?? item.grams,
           ),
         )
         .toList();

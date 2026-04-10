@@ -583,8 +583,6 @@ class FoodDetectionService {
 
   bool _hasPlateSpecificEvidence(List<_LabelSignal> labels) {
     var maxConfidence = 0.0;
-    var foundFoodToken = false;
-    var foodTokensFound = <String>[];
 
     for (final signal in labels) {
       final normalized = _normalize(_fixCommonTypos(signal.label));
@@ -599,11 +597,9 @@ class FoodDetectionService {
       final hasFoodSpecificToken = _plateSpecificEvidenceTokens
           .any((token) => normalized.contains(token));
       if (hasFoodSpecificToken && signal.confidence >= 0.001) {
-        foundFoodToken = true;
         final matchedTokens = _plateSpecificEvidenceTokens
             .where((token) => normalized.contains(token))
             .toList();
-        foodTokensFound.addAll(matchedTokens);
         print(
             '✓ Found food token in "${signal.label}": ${matchedTokens.join(", ")}');
         return true;
@@ -1189,6 +1185,7 @@ const Map<String, List<String>> _specificFoodAliases = {
   'cream biscuit': ['biscuit'],
   'cracker biscuit': ['biscuit', 'cracker'],
   'banana': ['banana ripe', 'banana'],
+  'apple': ['apple', 'red apple', 'red delicious', 'apple fruit'],
   'mango': ['mango ripe', 'mango'],
   'papaya': ['papaya ripe', 'papaya'],
 };
@@ -1316,6 +1313,7 @@ const Map<String, List<String>> _yoloLabelAliases = {
   'papadum': ['papadam', 'papadum', 'poppadom', 'cracker'],
   'poppadom': ['papadam', 'papadum', 'poppadom', 'cracker'],
   'banana': ['banana ripe', 'banana', 'fruit'],
+  'apple': ['apple', 'red apple', 'red delicious', 'fruit'],
   'mango': ['mango ripe', 'mango', 'fruit'],
   'papaya': ['papaya ripe', 'papaya', 'fruit'],
   'beef curry': ['beef curry', 'beef', 'meat curry', 'curry'],
@@ -1376,6 +1374,7 @@ const Set<String> _plateSpecificEvidenceTokens = {
   'roti',
   'string',
   'banana',
+  'apple',
   'mango',
   'papaya',
   'fruit',
