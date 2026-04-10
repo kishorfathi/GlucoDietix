@@ -19,10 +19,17 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  static const double _fixedTargetMin = 75;
+  static const double _fixedTargetMax = 115;
+
   final _formKey = GlobalKey<FormState>();
   final _usernameController = TextEditingController();
-  final _minController = TextEditingController(text: '70');
-  final _maxController = TextEditingController(text: '95');
+  final _minController = TextEditingController(
+    text: _fixedTargetMin.toStringAsFixed(0),
+  );
+  final _maxController = TextEditingController(
+    text: _fixedTargetMax.toStringAsFixed(0),
+  );
   final _weightController = TextEditingController(text: '70');
   final _heightController = TextEditingController(text: '170');
 
@@ -92,8 +99,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _lowSodiumPreference = profile.lowSodiumPreference;
 
     _usernameController.text = profile.username ?? '';
-    _minController.text = profile.targetGlucoseMin.toStringAsFixed(1);
-    _maxController.text = profile.targetGlucoseMax.toStringAsFixed(1);
+    _minController.text = _fixedTargetMin.toStringAsFixed(0);
+    _maxController.text = _fixedTargetMax.toStringAsFixed(0);
     _weightController.text = profile.weightKg.toStringAsFixed(1);
     _heightController.text = profile.heightCm.toStringAsFixed(1);
   }
@@ -122,31 +129,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (authProvider.user == null) return false;
 
-    final targetMin = _parsePositive(_minController.text);
-    final targetMax = _parsePositive(_maxController.text);
+    final targetMin = _fixedTargetMin;
+    final targetMax = _fixedTargetMax;
     final weight = _parsePositive(_weightController.text);
     final height = _parsePositive(_heightController.text);
 
-    if (targetMin == null ||
-        targetMax == null ||
-        weight == null ||
-        height == null) {
+    if (weight == null || height == null) {
       if (!auto && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Please enter valid positive numbers'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-      return false;
-    }
-
-    if (targetMax <= targetMin) {
-      if (!auto && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Target max must be higher than target min'),
             backgroundColor: Colors.red,
           ),
         );
@@ -330,36 +322,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           Expanded(
                             child: TextFormField(
                               controller: _minController,
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                      decimal: true),
                               decoration: const InputDecoration(
                                 labelText: 'Target Min',
                                 border: OutlineInputBorder(),
+                                helperText: 'Fixed value',
                               ),
-                              validator: (value) =>
-                                  _parsePositive(value ?? '') == null
-                                      ? 'Invalid'
-                                      : null,
-                              onChanged: (_) => _scheduleAutoSave(),
+                              readOnly: true,
+                              enableInteractiveSelection: false,
                             ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: TextFormField(
                               controller: _maxController,
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                      decimal: true),
                               decoration: const InputDecoration(
                                 labelText: 'Target Max',
                                 border: OutlineInputBorder(),
+                                helperText: 'Fixed value',
                               ),
-                              validator: (value) =>
-                                  _parsePositive(value ?? '') == null
-                                      ? 'Invalid'
-                                      : null,
-                              onChanged: (_) => _scheduleAutoSave(),
+                              readOnly: true,
+                              enableInteractiveSelection: false,
                             ),
                           ),
                         ],
@@ -473,24 +455,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         onChanged: (value) {
                           if (value == null) return;
                           setState(() => _dietaryPreference = value);
-                          _scheduleAutoSave();
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      SwitchListTile(
-                        title: const Text('Prefer low GI foods'),
-                        value: _lowGIPreference,
-                        onChanged: (value) {
-                          setState(() => _lowGIPreference = value);
-                          _scheduleAutoSave();
-                        },
-                      ),
-                      const SizedBox(height: 8),
-                      SwitchListTile(
-                        title: const Text('Prefer low sodium foods'),
-                        value: _lowSodiumPreference,
-                        onChanged: (value) {
-                          setState(() => _lowSodiumPreference = value);
                           _scheduleAutoSave();
                         },
                       ),
