@@ -377,8 +377,8 @@ class FoodDetectionService {
       if (normalized.isEmpty || _ignoredGenericLabels.contains(normalized)) {
         continue;
       }
-      if (signal.confidence < _minDetectedSignalConfidence ||
-          seen.contains(normalized)) {
+      // Accept any detection with at least 0.1% confidence
+      if (signal.confidence < 0.001 || seen.contains(normalized)) {
         continue;
       }
       seen.add(normalized);
@@ -389,9 +389,7 @@ class FoodDetectionService {
           food: food,
           estimatedGrams:
               _estimateFallbackPortion(normalized, signal.confidence),
-          confidence: signal.confidence
-              .clamp(_minDetectedSignalConfidence, 0.99)
-              .toDouble(),
+          confidence: signal.confidence.clamp(0.001, 0.99).toDouble(),
           detectionMethod: detectionMethod,
           sourceLabel: signal.label,
         ),
@@ -504,7 +502,10 @@ class FoodDetectionService {
     List<Food> foods, {
     required String detectionMethod,
   }) {
+    print('Matching ${labels.length} signals to ${foods.length} available foods');
+
     if (!_hasPlateSpecificEvidence(labels)) {
+      print('No plate-specific evidence, will use fallback detection');
       return const [];
     }
 
@@ -513,6 +514,7 @@ class FoodDetectionService {
     for (final label in labels) {
       final normalizedSignal = _normalize(_fixCommonTypos(label.label));
       if (_ignoredGenericLabels.contains(normalizedSignal)) {
+        print('Ignoring generic label: ${label.label}');
         continue;
       }
       if (label.confidence < 0.001) {
@@ -521,6 +523,8 @@ class FoodDetectionService {
 
       final expandedLabels = _expandSignalLabels(label.label);
       if (expandedLabels.isEmpty) continue;
+
+      print('Expanded label "${label.label}" to: $expandedLabels');
 
       for (final food in foods) {
         double score = 0;
@@ -531,6 +535,8 @@ class FoodDetectionService {
         if (score <= 0) {
           continue;
         }
+
+        print('  Matched: ${food.name} with score $score (confidence: ${(label.confidence * 100).toStringAsFixed(1)}%)');
 
         final existing = candidates[food.id];
         if (existing == null) {
@@ -558,9 +564,12 @@ class FoodDetectionService {
     final ranked = candidates.values.toList()
       ..sort((a, b) => b.score.compareTo(a.score));
 
+    print('Found ${ranked.length} candidate matches');
+
     final refined = _preferPreparedPlateItems(ranked);
 
     if (refined.isEmpty) {
+      print('No matches after filtering');
       return const [];
     }
 
@@ -568,6 +577,8 @@ class FoodDetectionService {
     final shortlisted = refined
         .where((candidate) => candidate.score >= (bestScore * 0.25))
         .toList();
+
+    print('Shortlisted ${shortlisted.length} matches with good scores');
 
     return shortlisted.take(6).map((candidate) {
       return DetectedFood(
@@ -583,6 +594,7 @@ class FoodDetectionService {
 
   bool _hasPlateSpecificEvidence(List<_LabelSignal> labels) {
     var maxConfidence = 0.0;
+    var hasAnyNonGenericLabel = false;
 
     for (final signal in labels) {
       final normalized = _normalize(_fixCommonTypos(signal.label));
@@ -593,6 +605,9 @@ class FoodDetectionService {
       if (_ignoredGenericLabels.contains(normalized)) {
         continue;
       }
+
+      // Any non-generic label is evidence of food
+      hasAnyNonGenericLabel = true;
 
       final hasFoodSpecificToken = _plateSpecificEvidenceTokens
           .any((token) => normalized.contains(token));
@@ -606,7 +621,14 @@ class FoodDetectionService {
       }
     }
 
-    // Allow very confident detections even if tokens are uncommon.
+    // Allow any non-generic detection with reasonable confidence
+    if (hasAnyNonGenericLabel && maxConfidence >= 0.001) {
+      print(
+          '✓ Accepting non-generic detection with confidence: ${(maxConfidence * 100).toStringAsFixed(1)}%');
+      return true;
+    }
+
+    // Allow very confident detections even if tokens are uncommon
     final allowByConfidence = maxConfidence >= _minDetectedSignalConfidence;
     if (allowByConfidence) {
       print(
@@ -617,7 +639,7 @@ class FoodDetectionService {
     print(
         '✗ No plate-specific evidence found (max confidence: ${(maxConfidence * 100).toStringAsFixed(1)}%)');
     print(
-        '  Required: food tokens (${_plateSpecificEvidenceTokens.take(5).join(", ")}, ...) with ≥0.1% confidence OR any detection ≥${(_minDetectedSignalConfidence * 100).toStringAsFixed(1)}% confidence');
+        '  Required: any non-generic food label with ≥0.1% confidence OR any detection ≥${(_minDetectedSignalConfidence * 100).toStringAsFixed(1)}% confidence');
     return false;
   }
 
@@ -856,6 +878,20 @@ class FoodDetectionService {
       if (matchesKeyword) {
         score += confidence * 1.0;
       }
+    }
+
+    // Partial matching - give credit for similar words (more lenient)
+    // This helps match "fried chicken" to "chicken curry"
+    if (matchedWords > 0 && score == 0) {
+      score += confidence * 0.4;
+    }
+
+    // Single strong keyword match (e.g., "chicken" in both)
+    if (score == 0 && ((label.contains('chicken') && foodText.contains('chicken')) ||
+        (label.contains('fish') && foodText.contains('fish')) ||
+        (label.contains('rice') && foodText.contains('rice')) ||
+        (label.contains('curry') && foodText.contains('curry')))) {
+      score += confidence * 0.5;
     }
 
     return score;
