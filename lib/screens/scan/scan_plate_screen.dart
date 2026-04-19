@@ -128,7 +128,7 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
         _isDetecting = false;
         if (detected.isEmpty) {
           _mlNotice =
-              'No foods auto-detected. Use Add Missing Food below, or verify YOLO backend at http://127.0.0.1:8000/health (or 8008).';
+              'No foods auto-detected. Use Add Missing Food below, or verify the detection backend at http://127.0.0.1:8000/health (or 8008).';
         }
       });
     } catch (e) {
@@ -425,13 +425,13 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          '🤖 YOLOv8 Object Detection',
+                          '🤖 AI Object Detection',
                           style: TextStyle(
                               fontWeight: FontWeight.bold, fontSize: 16),
                         ),
                         SizedBox(height: 8),
                         Text('• Primary AI model for food recognition\n'
-                            '• Runs on local YOLO server (port 8000 or 8008)\n'
+                            '• Runs on local detection server (port 8000 or 8008)\n'
                             '• Fast and accurate food detection'),
                         SizedBox(height: 16),
                         Text(
@@ -440,7 +440,7 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
                               fontWeight: FontWeight.bold, fontSize: 16),
                         ),
                         SizedBox(height: 8),
-                        Text('• On-device detection if YOLO unavailable\n'
+                        Text('• On-device detection if primary unavailable\n'
                             '• Works offline\n'
                             '• Automatically used as backup'),
                         SizedBox(height: 16),
@@ -460,7 +460,7 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
                               fontWeight: FontWeight.bold, fontSize: 16),
                         ),
                         SizedBox(height: 8),
-                        Text('Start YOLO server:\n'
+                        Text('Start detection server:\n'
                             'powershell -ExecutionPolicy Bypass -File .\\tool\\run_yolo_server.ps1\n\n'
                             'Optional (force port 8000):\n'
                             'powershell -ExecutionPolicy Bypass -File .\\tool\\run_yolo_server.ps1 -Port 8000'),
@@ -501,7 +501,7 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
                       Border.all(color: scheme.primary.withValues(alpha: 0.3)),
                 ),
                 child: const Text(
-                  'Take a photo and YOLO AI will detect foods automatically. Review predictions and adjust portions before analysis.',
+                  'Take a photo and AI will detect foods automatically. Review predictions and adjust portions before analysis.',
                   textAlign: TextAlign.center,
                 ),
               ),
