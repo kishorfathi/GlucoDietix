@@ -502,7 +502,8 @@ class FoodDetectionService {
     List<Food> foods, {
     required String detectionMethod,
   }) {
-    print('Matching ${labels.length} signals to ${foods.length} available foods');
+    print(
+        'Matching ${labels.length} signals to ${foods.length} available foods');
 
     if (!_hasPlateSpecificEvidence(labels)) {
       print('No plate-specific evidence, will use fallback detection');
@@ -536,7 +537,8 @@ class FoodDetectionService {
           continue;
         }
 
-        print('  Matched: ${food.name} with score $score (confidence: ${(label.confidence * 100).toStringAsFixed(1)}%)');
+        print(
+            '  Matched: ${food.name} with score $score (confidence: ${(label.confidence * 100).toStringAsFixed(1)}%)');
 
         final existing = candidates[food.id];
         if (existing == null) {
@@ -887,10 +889,11 @@ class FoodDetectionService {
     }
 
     // Single strong keyword match (e.g., "chicken" in both)
-    if (score == 0 && ((label.contains('chicken') && foodText.contains('chicken')) ||
-        (label.contains('fish') && foodText.contains('fish')) ||
-        (label.contains('rice') && foodText.contains('rice')) ||
-        (label.contains('curry') && foodText.contains('curry')))) {
+    if (score == 0 &&
+        ((label.contains('chicken') && foodText.contains('chicken')) ||
+            (label.contains('fish') && foodText.contains('fish')) ||
+            (label.contains('rice') && foodText.contains('rice')) ||
+            (label.contains('curry') && foodText.contains('curry')))) {
       score += confidence * 0.5;
     }
 
