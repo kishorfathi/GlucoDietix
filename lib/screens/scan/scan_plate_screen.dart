@@ -425,12 +425,12 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          '🤖 AI Object Detection',
+                          '🤖 Object Detection',
                           style: TextStyle(
                               fontWeight: FontWeight.bold, fontSize: 16),
                         ),
                         SizedBox(height: 8),
-                        Text('• Primary AI model for food recognition\n'
+                        Text('• Primary model for food recognition\n'
                             '• Runs on local detection server (port 8000 or 8008)\n'
                             '• Fast and accurate food detection'),
                         SizedBox(height: 16),
@@ -501,7 +501,7 @@ class _ScanPlateScreenState extends State<ScanPlateScreen> {
                       Border.all(color: scheme.primary.withValues(alpha: 0.3)),
                 ),
                 child: const Text(
-                  'Take a photo and AI will detect foods automatically. Review predictions and adjust portions before analysis.',
+                  'Take a photo and foods will be detected automatically. Review predictions and adjust portions before analysis.',
                   textAlign: TextAlign.center,
                 ),
               ),
